@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - RPC EVM Proxy</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #007bff;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+        .section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button:hover {
+            background: #0056b3;
+        }
+        .log {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .chains-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .chain-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+        }
+        .chain-card h4 {
+            margin: 0 0 10px 0;
+            color: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 Admin Panel</h1>
+            <p>RPC EVM Proxy Management Interface</p>
+        </div>
+
+        <div class="section">
+            <h3>🔑 Authentication Status</h3>
+            <div id="authStatus">Checking...</div>
+            <button class="button" onclick="testAuth()">Test Authentication</button>
+        </div>
+
+        <div class="section">
+            <h3>⛓️ Chains Management</h3>
+            <div id="chainsStatus">Not loaded</div>
+            <button class="button" onclick="loadChains()">Load Chains</button>
+            <div id="chainsContainer"></div>
+        </div>
+
+        <div class="section">
+            <h3>📋 Debug Log</h3>
+            <button class="button" onclick="clearLog()">Clear Log</button>
+            <div id="debugLog" class="log">Admin interface loaded...\n</div>
+        </div>
+    </div>
+
+    <script>
+        let apiKey = '';
+        
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logElement = document.getElementById('debugLog');
+            logElement.textContent += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        function clearLog() {
+            document.getElementById('debugLog').textContent = '';
+        }
+
+        function showStatus(elementId, message, isSuccess = true) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `status ${isSuccess ? 'success' : 'error'}`;
+        }
+
+        async function testAuth() {
+            log('Testing authentication...');
+            
+            if (!apiKey) {
+                log('No API key found, prompting user...');
+                apiKey = prompt('Enter API key:', 'admin123');
+                if (!apiKey) {
+                    showStatus('authStatus', 'No API key provided', false);
+                    return;
+                }
+            }
+
+            try {
+                log(`Making request to /admin/config with key: ${apiKey}`);
+                const response = await fetch('/admin/config', {
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`
+                    }
+                });
+
+                log(`Response status: ${response.status}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('Authentication successful!');
+                    log(`Config data received: ${Object.keys(data.data || {}).length} keys`);
+                    showStatus('authStatus', '✅ Authentication successful!', true);
+                } else {
+                    log(`Authentication failed: ${response.status}`);
+                    showStatus('authStatus', `❌ Authentication failed (${response.status})`, false);
+                }
+            } catch (error) {
+                log(`Authentication error: ${error.message}`);
+                showStatus('authStatus', `❌ Error: ${error.message}`, false);
+            }
+        }
+
+        async function loadChains() {
+            log('Loading chains...');
+            
+            if (!apiKey) {
+                log('No API key, testing auth first...');
+                await testAuth();
+                if (!apiKey) return;
+            }
+
+            try {
+                log('Making request to /admin/chains...');
+                const response = await fetch('/admin/chains', {
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`
+                    }
+                });
+
+                log(`Chains response status: ${response.status}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`Chains loaded: ${data.data?.length || 0} chains`);
+                    showStatus('chainsStatus', `✅ Loaded ${data.data?.length || 0} chains`, true);
+                    displayChains(data.data || []);
+                } else {
+                    log(`Failed to load chains: ${response.status}`);
+                    showStatus('chainsStatus', `❌ Failed to load chains (${response.status})`, false);
+                }
+            } catch (error) {
+                log(`Chains loading error: ${error.message}`);
+                showStatus('chainsStatus', `❌ Error: ${error.message}`, false);
+            }
+        }
+
+        function displayChains(chains) {
+            const container = document.getElementById('chainsContainer');
+            
+            if (!chains || chains.length === 0) {
+                container.innerHTML = '<p>No chains found</p>';
+                return;
+            }
+
+            // Filter out null/undefined chains and validate required properties
+            const validChains = chains.filter(chain => {
+                if (!chain) {
+                    log('Warning: Found null/undefined chain, skipping...');
+                    return false;
+                }
+                if (!chain.name || !chain.chainId) {
+                    log(`Warning: Chain missing required properties: ${JSON.stringify(chain)}`);
+                    return false;
+                }
+                return true;
+            });
+
+            if (validChains.length === 0) {
+                container.innerHTML = '<p>No valid chains found</p>';
+                log('All chains were invalid or null');
+                return;
+            }
+
+            const html = `
+                <div class="chains-grid">
+                    ${validChains.map(chain => `
+                        <div class="chain-card">
+                            <h4>${chain.name} (${chain.chainId})</h4>
+                            <p><strong>Symbol:</strong> ${chain.symbol || 'N/A'}</p>
+                            <p><strong>RPCs:</strong> ${chain.rpcCount || 0} total, ${chain.activeRpcCount || 0} active</p>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            container.innerHTML = html;
+            log(`Displayed ${validChains.length} valid chains in UI (filtered from ${chains.length} total)`);
+        }
+
+        // Auto-load on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            log('Admin interface loaded');
+            
+            // Check for API key in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlKey = urlParams.get('key');
+            
+            if (urlKey) {
+                log(`Found API key in URL: ${urlKey}`);
+                apiKey = urlKey;
+                
+                // Auto-test authentication
+                setTimeout(() => {
+                    log('Auto-testing authentication...');
+                    testAuth();
+                }, 500);
+            } else {
+                log('No API key in URL, manual authentication required');
+            }
+        });
+    </script>
+</body>
+</html>
