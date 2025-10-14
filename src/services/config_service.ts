@@ -48,87 +48,92 @@ export class ConfigService {
   }
 
   /**
-   * Get configuration for a specific chain
+   * Get chain configuration by ID
    */
-  async getChainConfig(chainId: number): Promise<ChainConfig | null> {
+  async getChainConfig(chainId: number | string): Promise<ChainConfig | null> {
     const config = await this.getConfig();
-    return config.chains[chainId.toString()] || null;
+    return config.chains[chainId] || null;
   }
 
   /**
-   * Add or update a chain configuration
+   * Update chain configuration
    */
-  async updateChainConfig(chainId: number, chainConfig: ChainConfig): Promise<void> {
+  async updateChainConfig(chainId: number | string, chainConfig: ChainConfig): Promise<void> {
     const config = await this.getConfig();
-    config.chains[chainId.toString()] = chainConfig;
+    config.chains[chainId] = chainConfig;
     await this.saveConfig(config);
   }
 
   /**
-   * Remove a chain configuration
+   * Remove chain configuration
    */
-  async removeChainConfig(chainId: number): Promise<void> {
+  async removeChainConfig(chainId: number | string): Promise<void> {
     const config = await this.getConfig();
-    delete config.chains[chainId.toString()];
+    delete config.chains[chainId];
     await this.saveConfig(config);
   }
 
   /**
-   * Add RPC endpoint to a specific chain
+   * Add RPC endpoint to a chain
    */
-  async addRPCEndpoint(chainId: number, rpcEndpoint: RPCEndpoint): Promise<void> {
+  async addRPCEndpoint(chainId: number | string, rpcEndpoint: RPCEndpoint): Promise<void> {
     const config = await this.getConfig();
-    const chainConfig = config.chains[chainId.toString()];
+    const chain = config.chains[chainId];
+    if (!chain) {
+      throw new ConfigurationError(`Chain ${chainId} not found`);
+    }
+    chain.rpcs.push(rpcEndpoint);
+    await this.saveConfig(config);
+  }
+
+  /**
+   * Remove RPC endpoint from a chain
+   */
+  async removeRPCEndpoint(chainId: number | string, rpcUrl: string): Promise<void> {
+    const config = await this.getConfig();
+    const chain = config.chains[chainId];
+    if (!chain) {
+      throw new ConfigurationError(`Chain ${chainId} not found`);
+    }
+    
+    const rpcIndex = chain.rpcs.findIndex(rpc => rpc.url === rpcUrl);
+    if (rpcIndex === -1) {
+      throw new ConfigurationError(`RPC endpoint ${rpcUrl} not found in chain ${chainId}`);
+    }
+    
+    chain.rpcs.splice(rpcIndex, 1);
+    await this.saveConfig(config);
+  }
+
+  /**
+   * Update RPC endpoint status
+   */
+  async updateRPCStatus(chainId: number | string, rpcUrl: string, isActive: boolean): Promise<void> {
+    const config = await this.getConfig();
+    const chainConfig = config.chains[chainId];
     
     if (!chainConfig) {
-      throw new Error(`Chain ${chainId} not found`);
+      throw new ConfigurationError(`Chain ${chainId} not found`);
     }
 
-    chainConfig.rpcs.push(rpcEndpoint);
-    await this.saveConfig(config);
-  }
-
-  /**
-   * Remove RPC endpoint from a specific chain
-   */
-  async removeRPCEndpoint(chainId: number, rpcUrl: string): Promise<void> {
-    const config = await this.getConfig();
-    const chainConfig = config.chains[chainId.toString()];
-    
-    if (!chainConfig) {
-      throw new Error(`Chain ${chainId} not found`);
+    const rpc = chainConfig.rpcs.find(r => r.url === rpcUrl);
+    if (!rpc) {
+      throw new ConfigurationError(`RPC endpoint ${rpcUrl} not found in chain ${chainId}`);
     }
 
-    chainConfig.rpcs = chainConfig.rpcs.filter(rpc => rpc.url !== rpcUrl);
-    await this.saveConfig(config);
-  }
-
-  /**
-   * Update RPC endpoint status (active/inactive)
-   */
-  async updateRPCStatus(chainId: number, rpcUrl: string, isActive: boolean): Promise<void> {
-    const config = await this.getConfig();
-    const chainConfig = config.chains[chainId.toString()];
-    
-    if (!chainConfig) {
-      throw new Error(`Chain ${chainId} not found`);
-    }
-
-    const rpcEndpoint = chainConfig.rpcs.find(rpc => rpc.url === rpcUrl);
-    if (!rpcEndpoint) {
-      throw new Error(`RPC endpoint ${rpcUrl} not found for chain ${chainId}`);
-    }
-
-    rpcEndpoint.isActive = isActive;
+    rpc.isActive = isActive;
     await this.saveConfig(config);
   }
 
   /**
    * Get all available chain IDs
    */
-  async getAvailableChains(): Promise<number[]> {
+  async getAvailableChains(): Promise<(number | string)[]> {
     const config = await this.getConfig();
-    return Object.keys(config.chains).map(chainId => parseInt(chainId));
+    return Object.keys(config.chains).map(chainId => {
+      const parsed = parseInt(chainId, 10);
+      return isNaN(parsed) ? chainId : parsed;
+    });
   }
 
   /**

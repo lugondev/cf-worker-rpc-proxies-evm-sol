@@ -15,7 +15,7 @@ export interface LogEntry {
   timestamp: number;
   data?: any;
   requestId?: string;
-  chainId?: number;
+  chainId?: number | string;
   rpcUrl?: string;
   component?: string;
   operation?: string;
@@ -123,7 +123,7 @@ export class Logger {
    */
   logRPCRequest(
     requestId: string,
-    chainId: number,
+    chainId: number | string,
     method: string,
     rpcUrl: string,
     duration?: number,
@@ -144,7 +144,7 @@ export class Logger {
    * Log health check results
    */
   logHealthCheck(
-    chainId: number,
+    chainId: number | string,
     rpcUrl: string,
     success: boolean,
     responseTime?: number,

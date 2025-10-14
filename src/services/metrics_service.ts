@@ -29,7 +29,7 @@ export interface ErrorMetric {
 export interface UsageMetric {
   endpoint: string;
   method: string;
-  chainId: number;
+  chainId: number | string;
   timestamp: number;
   responseTime: number;
   statusCode: number;
@@ -137,7 +137,7 @@ export class MetricsService {
   recordUsage(
     endpoint: string,
     method: string,
-    chainId: number,
+    chainId: number | string,
     responseTime: number,
     statusCode: number,
     userAgent?: string,
@@ -245,7 +245,7 @@ export class MetricsService {
   getUsageStats(timeWindow?: number): {
     totalRequests: number;
     avgResponseTime: number;
-    requestsByChain: Record<number, number>;
+    requestsByChain: Record<string | number, number>;
     requestsByEndpoint: Record<string, number>;
     statusCodeDistribution: Record<number, number>;
   } {
@@ -256,14 +256,15 @@ export class MetricsService {
       filteredMetrics = filteredMetrics.filter(m => m.timestamp > cutoff);
     }
 
-    const requestsByChain: Record<number, number> = {};
+    const requestsByChain: Record<string | number, number> = {};
     const requestsByEndpoint: Record<string, number> = {};
     const statusCodeDistribution: Record<number, number> = {};
 
     let totalResponseTime = 0;
 
     filteredMetrics.forEach(metric => {
-      requestsByChain[metric.chainId] = (requestsByChain[metric.chainId] || 0) + 1;
+      const chainKey = String(metric.chainId);
+      requestsByChain[chainKey] = (requestsByChain[chainKey] || 0) + 1;
       requestsByEndpoint[metric.endpoint] = (requestsByEndpoint[metric.endpoint] || 0) + 1;
       statusCodeDistribution[metric.statusCode] = (statusCodeDistribution[metric.statusCode] || 0) + 1;
       totalResponseTime += metric.responseTime;

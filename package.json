@@ -8,6 +8,8 @@
     "deploy": "wrangler deploy",
     "deploy:staging": "wrangler deploy --env staging",
     "deploy:production": "wrangler deploy --env production",
+    "update-config": "node scripts/update-config.js",
+    "update-config:local": "node scripts/update-config.js http://localhost:8787",
     "test": "vitest",
     "type-check": "tsc --noEmit"
   },

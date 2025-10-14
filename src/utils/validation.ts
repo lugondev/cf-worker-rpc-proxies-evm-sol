@@ -27,8 +27,13 @@ export class Validator {
   /**
    * Validates chain ID
    */
-  static validateChainId(chainId: any): number {
+  static validateChainId(chainId: any): number | string {
     if (typeof chainId === 'string') {
+      // For Solana chains, allow string chain IDs
+      if (chainId.startsWith('sol-')) {
+        return chainId;
+      }
+      
       const parsed = parseInt(chainId, 10);
       if (isNaN(parsed)) {
         throw new ValidationError(

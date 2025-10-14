@@ -149,8 +149,9 @@ export enum ErrorCode {
   NO_HEALTHY_RPCS = -32002,
 }
 
-// Request method types for JSON-RPC
+// JSON-RPC method types for better type safety
 export type JSONRPCMethod = 
+  // Ethereum/EVM methods
   | 'eth_blockNumber'
   | 'eth_getBalance'
   | 'eth_getTransactionCount'
@@ -165,6 +166,41 @@ export type JSONRPCMethod =
   | 'eth_chainId'
   | 'net_version'
   | 'web3_clientVersion'
+  // Solana methods
+  | 'getAccountInfo'
+  | 'getBalance'
+  | 'getBlockHeight'
+  | 'getBlockTime'
+  | 'getClusterNodes'
+  | 'getEpochInfo'
+  | 'getHealth'
+  | 'getIdentity'
+  | 'getInflationGovernor'
+  | 'getInflationRate'
+  | 'getLatestBlockhash'
+  | 'getLeaderSchedule'
+  | 'getMinimumBalanceForRentExemption'
+  | 'getMultipleAccounts'
+  | 'getProgramAccounts'
+  | 'getRecentBlockhash'
+  | 'getSignatureStatuses'
+  | 'getSlot'
+  | 'getSlotLeader'
+  | 'getSlotLeaders'
+  | 'getStakeActivation'
+  | 'getSupply'
+  | 'getTokenAccountBalance'
+  | 'getTokenAccountsByDelegate'
+  | 'getTokenAccountsByOwner'
+  | 'getTokenLargestAccounts'
+  | 'getTokenSupply'
+  | 'getTransaction'
+  | 'getTransactionCount'
+  | 'getVersion'
+  | 'getVoteAccounts'
+  | 'requestAirdrop'
+  | 'sendTransaction'
+  | 'simulateTransaction'
   | string; // Allow other methods
 
 // Typed JSON-RPC request with specific method
@@ -293,7 +329,7 @@ export interface RequestEvent {
 }
 
 export interface HealthCheckEvent {
-  chainId: number;
+  chainId: number | string;
   rpcUrl: string;
   timestamp: number;
   success: boolean;

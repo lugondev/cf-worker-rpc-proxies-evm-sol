@@ -11,9 +11,9 @@ export class HealthService {
   }
 
   /**
-   * Perform health check on a specific RPC endpoint
+   * Check health of a specific RPC endpoint
    */
-  async checkRPCHealth(chainId: number, rpcEndpoint: RPCEndpoint): Promise<HealthCheckResult> {
+  async checkRPCHealth(chainId: number | string, rpcEndpoint: RPCEndpoint): Promise<HealthCheckResult> {
     const startTime = Date.now();
     
     try {
@@ -97,7 +97,7 @@ export class HealthService {
   /**
    * Perform health check on all RPCs for a specific chain
    */
-  async checkChainHealth(chainId: number): Promise<HealthCheckResult[]> {
+  async checkChainHealth(chainId: number | string): Promise<HealthCheckResult[]> {
     const chainConfig = await this.configService.getChainConfig(chainId);
     if (!chainConfig) {
       throw new Error(`Chain ${chainId} not found`);
@@ -118,7 +118,8 @@ export class HealthService {
     const allHealthChecks: Promise<HealthCheckResult[]>[] = [];
 
     for (const chainIdStr of Object.keys(config.chains)) {
-      const chainId = parseInt(chainIdStr);
+      const parsed = parseInt(chainIdStr, 10);
+      const chainId = isNaN(parsed) ? chainIdStr : parsed;
       allHealthChecks.push(this.checkChainHealth(chainId));
     }
 
@@ -196,17 +197,19 @@ export class HealthService {
 
     // Group results by chain
     const chainResults = results.reduce((acc, result) => {
-      if (!acc[result.chainId]) {
-        acc[result.chainId] = [];
+      const key = String(result.chainId);
+      if (!acc[key]) {
+        acc[key] = [];
       }
-      acc[result.chainId].push(result);
+      acc[key].push(result);
       return acc;
-    }, {} as Record<number, HealthCheckResult[]>);
+    }, {} as Record<string, HealthCheckResult[]>);
 
     // Calculate summary for each chain
     for (const [chainIdStr, chainConfig] of Object.entries(config.chains)) {
-      const chainId = parseInt(chainIdStr);
-      const chainHealthResults = chainResults[chainId] || [];
+      const parsed = parseInt(chainIdStr, 10);
+      const chainId = isNaN(parsed) ? chainIdStr : parsed;
+      const chainHealthResults = chainResults[chainIdStr] || [];
       
       const healthyCount = chainHealthResults.filter(r => r.isHealthy).length;
       const totalCount = chainHealthResults.length;

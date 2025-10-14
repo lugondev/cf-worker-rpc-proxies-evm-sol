@@ -80,9 +80,11 @@ async function handleManagementRoutes(request: Request, env: Env): Promise<Respo
   }
 
   // Individual chain management
-  const chainMatch = path.match(/^\/chains\/(\d+)$/);
+  const chainMatch = path.match(/^\/chains\/([^\/]+)$/);
   if (chainMatch) {
-    const chainId = parseInt(chainMatch[1]);
+    const chainIdStr = chainMatch[1];
+    const parsed = parseInt(chainIdStr, 10);
+    const chainId = isNaN(parsed) ? chainIdStr : parsed;
     switch (method) {
       case 'GET':
         return managementRoutes.getChainConfig(request, chainId);
@@ -94,9 +96,11 @@ async function handleManagementRoutes(request: Request, env: Env): Promise<Respo
   }
 
   // RPC endpoint management
-  const rpcMatch = path.match(/^\/chains\/(\d+)\/rpcs$/);
+  const rpcMatch = path.match(/^\/chains\/([^\/]+)\/rpcs$/);
   if (rpcMatch) {
-    const chainId = parseInt(rpcMatch[1]);
+    const chainIdStr = rpcMatch[1];
+    const parsed = parseInt(chainIdStr, 10);
+    const chainId = isNaN(parsed) ? chainIdStr : parsed;
     switch (method) {
       case 'POST':
         return managementRoutes.addRPCEndpoint(request, chainId);
@@ -104,9 +108,11 @@ async function handleManagementRoutes(request: Request, env: Env): Promise<Respo
   }
 
   // Remove RPC endpoint
-  const removeRpcMatch = path.match(/^\/chains\/(\d+)\/rpcs\/remove$/);
+  const removeRpcMatch = path.match(/^\/chains\/([^\/]+)\/rpcs\/remove$/);
   if (removeRpcMatch) {
-    const chainId = parseInt(removeRpcMatch[1]);
+    const chainIdStr = removeRpcMatch[1];
+    const parsed = parseInt(chainIdStr, 10);
+    const chainId = isNaN(parsed) ? chainIdStr : parsed;
     if (method === 'POST') {
       return managementRoutes.removeRPCEndpoint(request, chainId);
     }
@@ -123,18 +129,22 @@ async function handleManagementRoutes(request: Request, env: Env): Promise<Respo
   }
 
   // Chain health
-  const healthMatch = path.match(/^\/health\/(\d+)$/);
+  const healthMatch = path.match(/^\/health\/([^\/]+)$/);
   if (healthMatch) {
-    const chainId = parseInt(healthMatch[1]);
+    const chainIdStr = healthMatch[1];
+    const parsed = parseInt(chainIdStr, 10);
+    const chainId = isNaN(parsed) ? chainIdStr : parsed;
     if (method === 'GET') {
       return managementRoutes.getChainHealth(request, chainId);
     }
   }
 
   // RPC status update
-  const statusMatch = path.match(/^\/chains\/(\d+)\/rpcs\/status$/);
+  const statusMatch = path.match(/^\/chains\/([^\/]+)\/rpcs\/status$/);
   if (statusMatch) {
-    const chainId = parseInt(statusMatch[1]);
+    const chainIdStr = statusMatch[1];
+    const parsed = parseInt(chainIdStr, 10);
+    const chainId = isNaN(parsed) ? chainIdStr : parsed;
     if (method === 'PUT') {
       const url = new URL(request.url);
       const rpcUrl = url.searchParams.get('url');

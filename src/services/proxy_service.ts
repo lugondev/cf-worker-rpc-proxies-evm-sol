@@ -416,22 +416,33 @@ export class ProxyService {
     }
   }
 
-  private extractChainId(request: Request, jsonRPCRequest: JSONRPCRequest): number | null {
+  private extractChainId(request: Request, jsonRPCRequest: JSONRPCRequest): number | string | null {
     const url = new URL(request.url);
     
-    // Try to extract from URL path (e.g., /rpc/1 or /1)
-    const pathMatch = url.pathname.match(/\/(?:rpc\/)?(\d+)/);
+    // Try to extract from URL path (e.g., /rpc/1, /1, /sol-dev, /sol-main)
+    const pathMatch = url.pathname.match(/\/(?:rpc\/)?([^\/]+)/);
     if (pathMatch) {
-      return parseInt(pathMatch[1], 10);
+      const chainIdStr = pathMatch[1];
+      
+      // Check if it's a number (EVM chains)
+      const numericChainId = parseInt(chainIdStr, 10);
+      if (!isNaN(numericChainId)) {
+        return numericChainId;
+      }
+      
+      // Return as string for non-numeric chain IDs (Solana chains)
+      return chainIdStr;
     }
     
     // Try to extract from query parameters
     const chainIdParam = url.searchParams.get('chainId') || url.searchParams.get('chain');
     if (chainIdParam) {
-      const chainId = parseInt(chainIdParam, 10);
-      if (!isNaN(chainId)) {
-        return chainId;
+      const numericChainId = parseInt(chainIdParam, 10);
+      if (!isNaN(numericChainId)) {
+        return numericChainId;
       }
+      // Return as string for non-numeric chain IDs
+      return chainIdParam;
     }
     
     // Try to extract from JSON-RPC params (if method supports it)
@@ -439,10 +450,13 @@ export class ProxyService {
       // Some methods might include chainId in params
       for (const param of jsonRPCRequest.params) {
         if (typeof param === 'object' && param !== null && 'chainId' in param) {
-          const chainId = parseInt(String(param.chainId), 10);
-          if (!isNaN(chainId)) {
-            return chainId;
+          const chainIdValue = param.chainId;
+          const numericChainId = parseInt(String(chainIdValue), 10);
+          if (!isNaN(numericChainId)) {
+            return numericChainId;
           }
+          // Return as string for non-numeric chain IDs
+          return String(chainIdValue);
         }
       }
     }

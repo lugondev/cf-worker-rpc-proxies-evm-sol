@@ -225,7 +225,7 @@ export class ManagementRoutes {
   /**
    * GET /admin/chains/:chainId - Get specific chain configuration
    */
-  async getChainConfig(request: Request, chainId: number): Promise<Response> {
+  async getChainConfig(request: Request, chainId: number | string): Promise<Response> {
     try {
       if (!this.authenticateAdmin(request)) {
         return this.createResponse(false, null, 'Unauthorized', APP_CONSTANTS.HTTP_STATUS.UNAUTHORIZED);
@@ -263,7 +263,7 @@ export class ManagementRoutes {
   /**
    * PUT /admin/chains/:chainId - Update specific chain configuration
    */
-  async updateChainConfig(request: Request, chainId: number): Promise<Response> {
+  async updateChainConfig(request: Request, chainId: number | string): Promise<Response> {
     try {
       if (!this.authenticateAdmin(request)) {
         return this.createResponse(false, null, 'Unauthorized', APP_CONSTANTS.HTTP_STATUS.UNAUTHORIZED);
@@ -293,7 +293,7 @@ export class ManagementRoutes {
   /**
    * DELETE /admin/chains/:chainId - Remove chain configuration
    */
-  async removeChainConfig(request: Request, chainId: number): Promise<Response> {
+  async removeChainConfig(request: Request, chainId: number | string): Promise<Response> {
     try {
       if (!this.authenticateAdmin(request)) {
         return this.createResponse(false, null, 'Unauthorized', APP_CONSTANTS.HTTP_STATUS.UNAUTHORIZED);
@@ -322,7 +322,7 @@ export class ManagementRoutes {
   /**
    * POST /admin/chains/:chainId/rpcs - Add RPC endpoint to chain
    */
-  async addRPCEndpoint(request: Request, chainId: number): Promise<Response> {
+  async addRPCEndpoint(request: Request, chainId: number | string): Promise<Response> {
     try {
       if (!this.authenticateAdmin(request)) {
         return this.createResponse(false, null, 'Unauthorized', APP_CONSTANTS.HTTP_STATUS.UNAUTHORIZED);
@@ -363,7 +363,7 @@ export class ManagementRoutes {
   /**
    * DELETE /admin/chains/:chainId/rpcs - Remove RPC endpoint from chain
    */
-  async removeRPCEndpoint(request: Request, chainId: number): Promise<Response> {
+  async removeRPCEndpoint(request: Request, chainId: number | string): Promise<Response> {
     try {
       if (!this.authenticateAdmin(request)) {
         return this.createResponse(false, null, 'Unauthorized', APP_CONSTANTS.HTTP_STATUS.UNAUTHORIZED);
@@ -427,7 +427,7 @@ export class ManagementRoutes {
   /**
    * GET /admin/health/:chainId - Get health status for specific chain
    */
-  async getChainHealth(request: Request, chainId: number): Promise<Response> {
+  async getChainHealth(request: Request, chainId: number | string): Promise<Response> {
     try {
       if (!this.authenticateAdmin(request)) {
         return this.createResponse(false, null, 'Unauthorized', APP_CONSTANTS.HTTP_STATUS.UNAUTHORIZED);
@@ -480,7 +480,7 @@ export class ManagementRoutes {
   /**
    * PUT /admin/chains/:chainId/rpcs/:rpcUrl/status - Update RPC status
    */
-  async updateRPCStatus(request: Request, chainId: number, rpcUrl: string): Promise<Response> {
+  async updateRPCStatus(request: Request, chainId: number | string, rpcUrl: string): Promise<Response> {
     try {
       if (!this.authenticateAdmin(request)) {
         return this.createResponse(false, null, 'Unauthorized', APP_CONSTANTS.HTTP_STATUS.UNAUTHORIZED);

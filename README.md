@@ -20,6 +20,8 @@ A high-performance Cloudflare Worker service that acts as a reverse proxy for EV
 - **BNB Smart Chain (56)** - BNB
 - **Arbitrum One (42161)** - ETH
 - **Optimism (10)** - ETH
+- **Solana Devnet (sol-dev)** - SOL
+- **Solana Mainnet (sol-main)** - SOL
 
 *Additional chains can be added via the management API*
 
