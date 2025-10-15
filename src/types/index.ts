@@ -32,6 +32,17 @@ export interface ChainConfig {
   blockExplorerUrl?: string;
 }
 
+// CORS configuration
+export interface CORSConfig {
+  enabled: boolean;
+  allowedOrigins: string[]; // List of allowed origins, or ['*'] for all
+  allowedMethods: string[];
+  allowedHeaders: string[];
+  exposedHeaders: string[];
+  maxAge: number; // Preflight cache duration in seconds
+  credentials: boolean;
+}
+
 // Complete RPC configuration
 export interface RPCConfig {
   chains: Record<string, ChainConfig>;
@@ -40,6 +51,7 @@ export interface RPCConfig {
     defaultMaxRetries: number;
     healthCheckInterval: number;
   };
+  cors: CORSConfig;
 }
 
 // Health check result

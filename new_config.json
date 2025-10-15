@@ -7,25 +7,57 @@
       "blockExplorerUrl": "https://etherscan.io",
       "rpcs": [
         {
-          "url": "https://eth.llamarpc.com",
-          "name": "LlamaRPC",
+          "url": "https://ethereum-rpc.publicnode.com",
+          "name": "PublicNode",
           "priority": 10,
           "timeout": 30000,
           "maxRetries": 3,
           "isActive": true
         },
         {
-          "url": "https://rpc.ankr.com/eth",
-          "name": "Ankr",
+          "url": "https://eth.drpc.org",
+          "name": "dRPC",
+          "priority": 7,
+          "timeout": 30000,
+          "maxRetries": 3,
+          "isActive": true
+        },
+        {
+          "url": "https://eth.llamarpc.com",
+          "name": "LlamaRPC",
+          "priority": 6,
+          "timeout": 30000,
+          "maxRetries": 3,
+          "isActive": true
+        }
+      ]
+    },
+    "11155111": {
+      "chainId": 11155111,
+      "name": "Sepolia Testnet",
+      "symbol": "ETH",
+      "blockExplorerUrl": "https://sepolia.etherscan.io",
+      "rpcs": [
+        {
+          "url": "https://ethereum-sepolia-rpc.publicnode.com",
+          "name": "PublicNode",
+          "priority": 10,
+          "timeout": 30000,
+          "maxRetries": 3,
+          "isActive": true
+        },
+        {
+          "url": "https://sepolia.gateway.tenderly.co",
+          "name": "Tenderly",
           "priority": 9,
           "timeout": 30000,
           "maxRetries": 3,
           "isActive": true
         },
         {
-          "url": "https://ethereum.publicnode.com",
-          "name": "PublicNode",
-          "priority": 8,
+          "url": "https://rpc.bordel.wtf/sepolia",
+          "name": "Bordel",
+          "priority": 7,
           "timeout": 30000,
           "maxRetries": 3,
           "isActive": true
@@ -47,14 +79,6 @@
           "isActive": true
         },
         {
-          "url": "https://rpc.ankr.com/optimism",
-          "name": "Ankr",
-          "priority": 9,
-          "timeout": 30000,
-          "maxRetries": 3,
-          "isActive": true
-        },
-        {
           "url": "https://optimism.publicnode.com",
           "name": "PublicNode",
           "priority": 8,
@@ -71,25 +95,129 @@
       "blockExplorerUrl": "https://bscscan.com",
       "rpcs": [
         {
-          "url": "https://binance.llamarpc.com",
-          "name": "LlamaRPC",
+          "url": "https://bsc-dataseed.binance.org",
+          "name": "Binance Official",
           "priority": 10,
           "timeout": 30000,
           "maxRetries": 3,
           "isActive": true
         },
         {
-          "url": "https://rpc.ankr.com/bsc",
-          "name": "Ankr",
+          "url": "https://bsc.drpc.org",
+          "name": "dRPC",
+          "priority": 8,
+          "timeout": 30000,
+          "maxRetries": 3,
+          "isActive": true
+        },
+        {
+          "url": "https://bsc-rpc.publicnode.com",
+          "name": "PublicNode",
+          "priority": 6,
+          "timeout": 30000,
+          "maxRetries": 3,
+          "isActive": true
+        }
+      ]
+    },
+    "8453": {
+      "chainId": 8453,
+      "name": "BASE Mainnet",
+      "symbol": "ETH",
+      "blockExplorerUrl": "https://basescan.org",
+      "rpcs": [
+        {
+          "url": "https://base-rpc.publicnode.com",
+          "name": "PublicNode",
+          "priority": 10,
+          "timeout": 30000,
+          "maxRetries": 3,
+          "isActive": true
+        },
+        {
+          "url": "https://base.drpc.org",
+          "name": "dRPC",
           "priority": 9,
           "timeout": 30000,
           "maxRetries": 3,
           "isActive": true
         },
         {
-          "url": "https://bsc.publicnode.com",
-          "name": "PublicNode",
-          "priority": 8,
+          "url": "https://mainnet.base.org",
+          "name": "Base Official",
+          "priority": 7,
+          "timeout": 30000,
+          "maxRetries": 3,
+          "isActive": true
+        }
+      ]
+    },
+    "196": {
+      "chainId": 196,
+      "name": "X LAYER Mainnet",
+      "symbol": "OKB",
+      "blockExplorerUrl": "https://www.oklink.com/xlayer",
+      "rpcs": [
+        {
+          "url": "https://rpc.xlayer.tech",
+          "name": "X Layer Official",
+          "priority": 10,
+          "timeout": 30000,
+          "maxRetries": 3,
+          "isActive": true
+        },
+        {
+          "url": "https://xlayerrpc.okx.com",
+          "name": "OKX",
+          "priority": 9,
+          "timeout": 30000,
+          "maxRetries": 3,
+          "isActive": true
+        },
+        {
+          "url": "https://xlayer-rpc.com",
+          "name": "X Layer RPC",
+          "priority": 7,
+          "timeout": 30000,
+          "maxRetries": 3,
+          "isActive": true
+        }
+      ]
+    },
+    "9745": {
+      "chainId": 9745,
+      "name": "PLASMA Mainnet",
+      "symbol": "XPL",
+      "blockExplorerUrl": "https://plasma.to",
+      "rpcs": [
+        {
+          "url": "https://rpc.plasma.to",
+          "name": "Plasma Official",
+          "priority": 10,
+          "timeout": 30000,
+          "maxRetries": 3,
+          "isActive": true
+        },
+        {
+          "url": "https://plasma.drpc.org",
+          "name": "dRPC",
+          "priority": 9,
+          "timeout": 30000,
+          "maxRetries": 3,
+          "isActive": true
+        }
+      ]
+    },
+    "2741": {
+      "chainId": 2741,
+      "name": "ABSTRACT Mainnet",
+      "symbol": "ETH",
+      "blockExplorerUrl": "https://explorer.abstract.xyz",
+      "rpcs": [
+        {
+          "url": "https://abstract-mainnet.public.blastapi.io",
+          "name": "Blast API",
+          "priority": 10,
           "timeout": 30000,
           "maxRetries": 3,
           "isActive": true
@@ -106,14 +234,6 @@
           "url": "https://polygon.llamarpc.com",
           "name": "LlamaRPC",
           "priority": 10,
-          "timeout": 30000,
-          "maxRetries": 3,
-          "isActive": true
-        },
-        {
-          "url": "https://rpc.ankr.com/polygon",
-          "name": "Ankr",
-          "priority": 9,
           "timeout": 30000,
           "maxRetries": 3,
           "isActive": true
@@ -138,14 +258,6 @@
           "url": "https://arbitrum.llamarpc.com",
           "name": "LlamaRPC",
           "priority": 10,
-          "timeout": 30000,
-          "maxRetries": 3,
-          "isActive": true
-        },
-        {
-          "url": "https://rpc.ankr.com/arbitrum",
-          "name": "Ankr",
-          "priority": 9,
           "timeout": 30000,
           "maxRetries": 3,
           "isActive": true
@@ -229,5 +341,34 @@
     "defaultTimeout": 30000,
     "defaultMaxRetries": 3,
     "healthCheckInterval": 300000
+  },
+  "cors": {
+    "enabled": true,
+    "allowedOrigins": [
+      "*"
+    ],
+    "allowedMethods": [
+      "GET",
+      "POST",
+      "PUT",
+      "DELETE",
+      "OPTIONS"
+    ],
+    "allowedHeaders": [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Accept",
+      "Origin",
+      "Access-Control-Request-Method",
+      "Access-Control-Request-Headers"
+    ],
+    "exposedHeaders": [
+      "Content-Length",
+      "Content-Type",
+      "X-Request-ID"
+    ],
+    "maxAge": 86400,
+    "credentials": false
   }
 }

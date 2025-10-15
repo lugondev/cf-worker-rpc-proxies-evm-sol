@@ -6,7 +6,8 @@ import {
   RPCEndpoint, 
   ChainConfig,
   ErrorCode,
-  HttpStatusCode
+  HttpStatusCode,
+  CORSConfig
 } from '../types';
 import { ConfigService } from './config_service';
 import { RPCSelector } from './rpc_selector';
@@ -21,6 +22,7 @@ import {
   ChainNotSupportedError,
   SystemError 
 } from '../utils/error_handler';
+import { CORSHandler } from '../utils/cors';
 import { DEFAULT_MAX_RETRIES, RETRY_BASE_DELAY, DEFAULT_CHAIN_ID } from '../constants';
 
 export class ProxyService {
@@ -28,6 +30,7 @@ export class ProxyService {
   private logger: Logger;
   private cacheService: CacheService | null = null;
   private metricsService: MetricsService;
+  private corsHandler: CORSHandler | null = null;
 
   constructor(env: Env, cache?: KVNamespace) {
     this.configService = new ConfigService(env);
@@ -42,6 +45,19 @@ export class ProxyService {
     const startTime = Date.now();
     const requestId = crypto.randomUUID();
     const url = new URL(request.url);
+    const origin = request.headers.get('Origin');
+    
+    // Initialize CORS handler if not already done
+    if (!this.corsHandler) {
+      const config = await this.configService.getConfig();
+      this.corsHandler = new CORSHandler(config.cors);
+    }
+    
+    // Handle CORS preflight requests
+    if (request.method === 'OPTIONS') {
+      this.logger.debug('Handling CORS preflight request', { requestId, origin });
+      return this.corsHandler.handlePreflight(request);
+    }
     
     // Log incoming request
     this.logger.logRequest(
@@ -133,10 +149,13 @@ export class ProxyService {
           headers.set('X-Request-ID', requestId);
           headers.set('X-Cache', 'HIT');
           
-          return new Response(JSON.stringify(cachedResponse), {
+          const response = new Response(JSON.stringify(cachedResponse), {
             status: 200,
             headers
           });
+          
+          // Add CORS headers if enabled
+          return this.corsHandler ? this.corsHandler.addCORSHeaders(response, origin) : response;
         } else {
           this.logger.logCacheOperation('miss', cacheKey, 'proxy-service', undefined, requestId);
         }
@@ -194,11 +213,14 @@ export class ProxyService {
         { chainId, method: jsonRPCRequest.method, statusCode: response.status }
       );
       
-      return new Response(response.body, {
+      const finalResponse = new Response(response.body, {
         status: response.status,
         statusText: response.statusText,
         headers
       });
+      
+      // Add CORS headers if enabled
+      return this.corsHandler ? this.corsHandler.addCORSHeaders(finalResponse, origin) : finalResponse;
 
     } catch (error) {
       this.logger.error('Unexpected error in handleRequest', { 
@@ -217,7 +239,13 @@ export class ProxyService {
       
       const systemError = new SystemError('Internal error occurred during request processing');
       const handledError = errorHandler.handleError(systemError);
-      return errorHandler.createErrorResponse(handledError);
+      return this.createErrorResponse(
+        ErrorCode.INTERNAL_ERROR, 
+        'Internal error occurred during request processing',
+        null,
+        requestId,
+        origin
+      );
     }
   }
 
@@ -483,7 +511,8 @@ export class ProxyService {
     code: ErrorCode | number, 
     message: string, 
     id: any, 
-    requestId?: string
+    requestId?: string,
+    origin?: string | null
   ): Response {
     const errorResponse: JSONRPCResponse = {
       jsonrpc: '2.0',
@@ -502,10 +531,13 @@ export class ProxyService {
       headers['X-Request-ID'] = requestId;
     }
 
-    return new Response(JSON.stringify(errorResponse), {
+    const response = new Response(JSON.stringify(errorResponse), {
       status: HttpStatusCode.OK, // JSON-RPC errors are returned with 200 status
       headers,
     });
+
+    // Add CORS headers if enabled
+    return this.corsHandler ? this.corsHandler.addCORSHeaders(response, origin || null) : response;
   }
 
   private logRequest(context: ProxyContext): void {

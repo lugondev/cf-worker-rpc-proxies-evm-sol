@@ -231,5 +231,26 @@ export const DEFAULT_RPC_CONFIG: RPCConfig = {
     defaultTimeout: 30000,
     defaultMaxRetries: 3,
     healthCheckInterval: 300000 // 5 minutes
+  },
+  cors: {
+    enabled: true,
+    allowedOrigins: ['*'], // Allow all origins by default, can be restricted
+    allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With',
+      'Accept',
+      'Origin',
+      'Access-Control-Request-Method',
+      'Access-Control-Request-Headers'
+    ],
+    exposedHeaders: [
+      'Content-Length',
+      'Content-Type',
+      'X-Request-ID'
+    ],
+    maxAge: 86400, // 24 hours
+    credentials: false
   }
 };

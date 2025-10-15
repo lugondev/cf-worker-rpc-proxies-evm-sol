@@ -1,4 +1,4 @@
-import { Env, ManagementResponse, RPCConfig, ChainConfig, RPCEndpoint } from '../types';
+import { Env, ManagementResponse, RPCConfig, ChainConfig, RPCEndpoint, CORSConfig } from '../types';
 import { ConfigService } from '../services/config_service';
 import { HealthService } from '../services/health_service';
 import { Validator, ValidationError } from '../utils/validation';
@@ -167,6 +167,100 @@ export class ManagementRoutes {
         false, 
         null, 
         error instanceof Error ? error.message : 'Failed to update configuration',
+        APP_CONSTANTS.HTTP_STATUS.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  /**
+   * GET /admin/cors - Get current CORS configuration
+   */
+  async getCORSConfig(request: Request): Promise<Response> {
+    try {
+      if (!this.authenticateAdmin(request)) {
+        return this.createResponse(false, null, 'Unauthorized', APP_CONSTANTS.HTTP_STATUS.UNAUTHORIZED);
+      }
+
+      const config = await this.configService.getConfig();
+      return this.createResponse(true, config.cors);
+    } catch (error) {
+      logger.error('Failed to get CORS config', { error: error instanceof Error ? error.message : error });
+      return this.createResponse(
+        false, 
+        null, 
+        error instanceof Error ? error.message : 'Failed to get CORS configuration',
+        APP_CONSTANTS.HTTP_STATUS.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  /**
+   * PUT /admin/cors - Update CORS configuration
+   */
+  async updateCORSConfig(request: Request): Promise<Response> {
+    try {
+      if (!this.authenticateAdmin(request)) {
+        return this.createResponse(false, null, 'Unauthorized', APP_CONSTANTS.HTTP_STATUS.UNAUTHORIZED);
+      }
+
+      const contentType = request.headers.get('Content-Type');
+      if (!contentType?.includes('application/json')) {
+        return this.createResponse(
+          false, 
+          null, 
+          'Content-Type must be application/json', 
+          APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST
+        );
+      }
+
+      const corsConfig = await request.json() as CORSConfig;
+      
+      // Basic validation for CORS configuration
+      if (!corsConfig || typeof corsConfig !== 'object') {
+        return this.createResponse(
+          false, 
+          null, 
+          'Invalid CORS configuration format', 
+          APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST
+        );
+      }
+
+      // Validate required properties
+      if (typeof corsConfig.enabled !== 'boolean') {
+        return this.createResponse(
+          false, 
+          null, 
+          'CORS enabled property must be a boolean', 
+          APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST
+        );
+      }
+
+      if (!Array.isArray(corsConfig.allowedOrigins)) {
+        return this.createResponse(
+          false, 
+          null, 
+          'CORS allowedOrigins must be an array', 
+          APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST
+        );
+      }
+
+      // Get current config and update only CORS part
+      const currentConfig = await this.configService.getConfig();
+      currentConfig.cors = corsConfig;
+      
+      await this.configService.saveConfig(currentConfig);
+      logger.info('CORS config updated successfully', { corsConfig });
+      return this.createResponse(true, { message: 'CORS configuration updated successfully', cors: corsConfig });
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        return this.createResponse(false, null, error.message, APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST);
+      }
+      
+      logger.error('Failed to update CORS config', { error: error instanceof Error ? error.message : error });
+      return this.createResponse(
+        false, 
+        null, 
+        error instanceof Error ? error.message : 'Failed to update CORS configuration',
         APP_CONSTANTS.HTTP_STATUS.INTERNAL_SERVER_ERROR
       );
     }

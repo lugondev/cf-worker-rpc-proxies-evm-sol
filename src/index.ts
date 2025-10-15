@@ -50,6 +50,15 @@ async function handleManagementRoutes(request: Request, env: Env): Promise<Respo
     }
   }
 
+  if (path === '/admin/cors') {
+    switch (method) {
+      case 'GET':
+        return managementRoutes.getCORSConfig(request);
+      case 'PUT':
+        return managementRoutes.updateCORSConfig(request);
+    }
+  }
+
   // Admin RPC endpoint management
   const adminRpcMatch = path.match(/^\/admin\/chains\/(\d+)\/rpcs$/);
   if (adminRpcMatch) {
