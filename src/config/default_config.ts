@@ -243,7 +243,8 @@ export const DEFAULT_RPC_CONFIG: RPCConfig = {
       'Accept',
       'Origin',
       'Access-Control-Request-Method',
-      'Access-Control-Request-Headers'
+      'Access-Control-Request-Headers',
+      'solana-client'
     ],
     exposedHeaders: [
       'Content-Length',

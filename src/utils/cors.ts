@@ -96,6 +96,7 @@ export class CORSHandler {
     // Add specific preflight headers
     if (requestHeaders) {
       const requestedHeaders = requestHeaders.split(',').map(h => h.trim());
+      
       const allowedRequestHeaders = requestedHeaders.filter(header => 
         this.config.allowedHeaders.some(allowed => 
           allowed.toLowerCase() === header.toLowerCase()

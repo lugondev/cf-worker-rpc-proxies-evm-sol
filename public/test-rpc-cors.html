@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test RPC CORS</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        button {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #005a87;
+        }
+        .result {
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .success {
+            border-color: #4caf50;
+            background: #f1f8e9;
+        }
+        .error {
+            border-color: #f44336;
+            background: #ffebee;
+        }
+        input, select {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test RPC CORS</h1>
+    
+    <div class="container">
+        <h3>RPC Configuration</h3>
+        <label>
+            Base URL: 
+            <input type="text" id="baseUrl" value="http://localhost:8787" style="width: 200px;">
+        </label>
+        <br>
+        <label>
+            Chain ID: 
+            <select id="chainId">
+                <option value="1">Ethereum (1)</option>
+                <option value="137">Polygon (137)</option>
+                <option value="56">BSC (56)</option>
+                <option value="42161">Arbitrum (42161)</option>
+                <option value="10">Optimism (10)</option>
+            </select>
+        </label>
+        <br>
+        <label>
+            Method: 
+            <select id="method">
+                <option value="eth_blockNumber">eth_blockNumber</option>
+                <option value="eth_gasPrice">eth_gasPrice</option>
+                <option value="eth_chainId">eth_chainId</option>
+                <option value="net_version">net_version</option>
+            </select>
+        </label>
+    </div>
+
+    <div class="container">
+        <h3>Test Actions</h3>
+        <button onclick="testPreflight()">Test CORS Preflight (OPTIONS)</button>
+        <button onclick="testRPCCall()">Test RPC Call (POST)</button>
+        <button onclick="testWithFetch()">Test with Fetch API</button>
+        <button onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        function addResult(title, content, isSuccess = true) {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${isSuccess ? 'success' : 'error'}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            results.appendChild(div);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function testPreflight() {
+            const baseUrl = document.getElementById('baseUrl').value;
+            const chainId = document.getElementById('chainId').value;
+            const url = `${baseUrl}/rpc/${chainId}`;
+
+            try {
+                const response = await fetch(url, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Origin': window.location.origin,
+                        'Access-Control-Request-Method': 'POST',
+                        'Access-Control-Request-Headers': 'Content-Type'
+                    }
+                });
+
+                const headers = {};
+                for (let [key, value] of response.headers.entries()) {
+                    headers[key] = value;
+                }
+
+                addResult(
+                    `CORS Preflight Test - ${response.status} ${response.statusText}`,
+                    `URL: ${url}\nStatus: ${response.status}\nHeaders:\n${JSON.stringify(headers, null, 2)}`,
+                    response.ok
+                );
+            } catch (error) {
+                addResult(
+                    'CORS Preflight Test - Error',
+                    `URL: ${url}\nError: ${error.message}`,
+                    false
+                );
+            }
+        }
+
+        async function testRPCCall() {
+            const baseUrl = document.getElementById('baseUrl').value;
+            const chainId = document.getElementById('chainId').value;
+            const method = document.getElementById('method').value;
+            const url = `${baseUrl}/rpc/${chainId}`;
+
+            const rpcRequest = {
+                jsonrpc: '2.0',
+                method: method,
+                params: [],
+                id: Date.now()
+            };
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Origin': window.location.origin
+                    },
+                    body: JSON.stringify(rpcRequest)
+                });
+
+                const responseText = await response.text();
+                let responseData;
+                try {
+                    responseData = JSON.parse(responseText);
+                } catch {
+                    responseData = responseText;
+                }
+
+                const headers = {};
+                for (let [key, value] of response.headers.entries()) {
+                    headers[key] = value;
+                }
+
+                addResult(
+                    `RPC Call Test - ${response.status} ${response.statusText}`,
+                    `URL: ${url}\nRequest: ${JSON.stringify(rpcRequest, null, 2)}\nStatus: ${response.status}\nResponse: ${JSON.stringify(responseData, null, 2)}\nHeaders:\n${JSON.stringify(headers, null, 2)}`,
+                    response.ok && !responseData.error
+                );
+            } catch (error) {
+                addResult(
+                    'RPC Call Test - Error',
+                    `URL: ${url}\nRequest: ${JSON.stringify(rpcRequest, null, 2)}\nError: ${error.message}`,
+                    false
+                );
+            }
+        }
+
+        async function testWithFetch() {
+            const baseUrl = document.getElementById('baseUrl').value;
+            const chainId = document.getElementById('chainId').value;
+            const method = document.getElementById('method').value;
+            const url = `${baseUrl}/rpc/${chainId}`;
+
+            const rpcRequest = {
+                jsonrpc: '2.0',
+                method: method,
+                params: [],
+                id: Date.now()
+            };
+
+            try {
+                // Test if CORS works with fetch from different origin simulation
+                const response = await fetch(url, {
+                    method: 'POST',
+                    mode: 'cors', // Explicitly set CORS mode
+                    credentials: 'omit',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(rpcRequest)
+                });
+
+                const responseData = await response.json();
+
+                const headers = {};
+                for (let [key, value] of response.headers.entries()) {
+                    headers[key] = value;
+                }
+
+                addResult(
+                    `Fetch API Test - ${response.status} ${response.statusText}`,
+                    `URL: ${url}\nMode: cors\nRequest: ${JSON.stringify(rpcRequest, null, 2)}\nResponse: ${JSON.stringify(responseData, null, 2)}\nCORS Headers:\n${JSON.stringify({
+                        'access-control-allow-origin': headers['access-control-allow-origin'],
+                        'access-control-allow-methods': headers['access-control-allow-methods'],
+                        'access-control-allow-headers': headers['access-control-allow-headers'],
+                        'access-control-expose-headers': headers['access-control-expose-headers'],
+                        'access-control-max-age': headers['access-control-max-age']
+                    }, null, 2)}`,
+                    response.ok && !responseData.error
+                );
+            } catch (error) {
+                addResult(
+                    'Fetch API Test - Error',
+                    `URL: ${url}\nError: ${error.message}\nThis might indicate a CORS issue if the error mentions CORS or network.`,
+                    false
+                );
+            }
+        }
+
+        // Auto-run basic test on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                addResult('Page Loaded', `Testing from origin: ${window.location.origin}\nReady to test CORS functionality.`);
+            }, 100);
+        });
+    </script>
+</body>
+</html>
