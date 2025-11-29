@@ -54,7 +54,12 @@ export class CORSHandler {
     }
 
     if (this.config.allowedHeaders.length > 0) {
-      headers['Access-Control-Allow-Headers'] = this.config.allowedHeaders.join(', ');
+      // If '*' is in allowedHeaders, allow all headers
+      if (this.config.allowedHeaders.includes('*')) {
+        headers['Access-Control-Allow-Headers'] = '*';
+      } else {
+        headers['Access-Control-Allow-Headers'] = this.config.allowedHeaders.join(', ');
+      }
     }
 
     if (this.config.exposedHeaders.length > 0) {
@@ -95,16 +100,21 @@ export class CORSHandler {
 
     // Add specific preflight headers
     if (requestHeaders) {
-      const requestedHeaders = requestHeaders.split(',').map(h => h.trim());
-      
-      const allowedRequestHeaders = requestedHeaders.filter(header => 
-        this.config.allowedHeaders.some(allowed => 
-          allowed.toLowerCase() === header.toLowerCase()
-        )
-      );
-      
-      if (allowedRequestHeaders.length > 0) {
-        corsHeaders['Access-Control-Allow-Headers'] = allowedRequestHeaders.join(', ');
+      // If '*' is in allowedHeaders, allow all requested headers
+      if (this.config.allowedHeaders.includes('*')) {
+        corsHeaders['Access-Control-Allow-Headers'] = '*';
+      } else {
+        const requestedHeaders = requestHeaders.split(',').map(h => h.trim());
+        
+        const allowedRequestHeaders = requestedHeaders.filter(header => 
+          this.config.allowedHeaders.some(allowed => 
+            allowed.toLowerCase() === header.toLowerCase()
+          )
+        );
+        
+        if (allowedRequestHeaders.length > 0) {
+          corsHeaders['Access-Control-Allow-Headers'] = allowedRequestHeaders.join(', ');
+        }
       }
     }
 
@@ -206,4 +216,106 @@ export function createProductionCORSConfig(allowedOrigins: string[]): CORSConfig
     maxAge: 3600, // 1 hour
     credentials: false
   };
+}
+
+/**
+ * Create CORS configuration that allows all origins and common headers
+ * Use with caution in production environments
+ */
+export function createAllowAllCORSConfig(): CORSConfig {
+  return {
+    enabled: true,
+    allowedOrigins: ['*'],
+    allowedMethods: [
+      'GET', 
+      'POST', 
+      'PUT', 
+      'DELETE', 
+      'PATCH', 
+      'OPTIONS', 
+      'HEAD'
+    ],
+    allowedHeaders: [
+      '*', // Allow all headers
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With',
+      'Accept',
+      'Origin',
+      'Access-Control-Request-Method',
+      'Access-Control-Request-Headers',
+      'X-API-Key',
+      'X-Client-Version',
+      'User-Agent',
+      'Cache-Control',
+      'Pragma'
+    ],
+    exposedHeaders: [
+      'Content-Length',
+      'Content-Type',
+      'X-Request-ID',
+      'X-Response-Time',
+      'X-Rate-Limit-Remaining',
+      'X-Rate-Limit-Reset'
+    ],
+    maxAge: 86400, // 24 hours
+    credentials: false // Set to false for security when allowing all origins
+  };
+}
+
+/**
+ * Create a simple CORS handler that allows all requests
+ * Useful for development or when you need maximum compatibility
+ */
+export function createPermissiveCORSHandler(): CORSHandler {
+  return new CORSHandler(createAllowAllCORSConfig());
+}
+
+/**
+ * Quick utility to add permissive CORS headers to any response
+ */
+export function addPermissiveCORSHeaders(response: Response, requestOrigin?: string): Response {
+  const corsHeaders: Record<string, string> = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD',
+    'Access-Control-Allow-Headers': '*',
+    'Access-Control-Expose-Headers': 'Content-Length, Content-Type, X-Request-ID, X-Response-Time',
+    'Access-Control-Max-Age': '86400'
+  };
+
+  // If specific origin is provided and it's not a wildcard request, use the specific origin
+  if (requestOrigin && requestOrigin !== '*') {
+    corsHeaders['Access-Control-Allow-Origin'] = requestOrigin;
+    corsHeaders['Access-Control-Allow-Credentials'] = 'true';
+  }
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: {
+      ...Object.fromEntries(response.headers.entries()),
+      ...corsHeaders
+    }
+  });
+}
+
+/**
+ * Create a simple preflight response that allows all requests
+ */
+export function createPermissivePreflightResponse(requestOrigin?: string): Response {
+  const corsHeaders: Record<string, string> = {
+    'Access-Control-Allow-Origin': requestOrigin || '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD',
+    'Access-Control-Allow-Headers': '*',
+    'Access-Control-Max-Age': '86400'
+  };
+
+  if (requestOrigin && requestOrigin !== '*') {
+    corsHeaders['Access-Control-Allow-Credentials'] = 'true';
+  }
+
+  return new Response(null, {
+    status: 204,
+    headers: corsHeaders
+  });
 }

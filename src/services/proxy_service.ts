@@ -1,9 +1,9 @@
-import { 
-  Env, 
-  JSONRPCRequest, 
-  JSONRPCResponse, 
-  ProxyContext, 
-  RPCEndpoint, 
+import {
+  Env,
+  JSONRPCRequest,
+  JSONRPCResponse,
+  ProxyContext,
+  RPCEndpoint,
   ChainConfig,
   ErrorCode,
   HttpStatusCode,
@@ -14,16 +14,17 @@ import { RPCSelector } from './rpc_selector';
 import { CacheService } from './cache_service';
 import { MetricsService, getMetricsService } from './metrics_service';
 import { Logger, LogLevel } from '../utils/logger';
-import { 
-  errorHandler, 
-  ValidationError, 
-  NetworkError, 
-  TimeoutError, 
+import {
+  errorHandler,
+  ValidationError,
+  NetworkError,
+  TimeoutError,
   ChainNotSupportedError,
-  SystemError 
+  SystemError
 } from '../utils/error_handler';
 import { CORSHandler } from '../utils/cors';
 import { DEFAULT_MAX_RETRIES, RETRY_BASE_DELAY, DEFAULT_CHAIN_ID } from '../constants';
+import { generateCacheKey } from '../utils/hash';
 
 export class ProxyService {
   private configService: ConfigService;
@@ -46,19 +47,19 @@ export class ProxyService {
     const requestId = crypto.randomUUID();
     const url = new URL(request.url);
     const origin = request.headers.get('Origin');
-    
+
     // Initialize CORS handler if not already done
     if (!this.corsHandler) {
       const config = await this.configService.getConfig();
       this.corsHandler = new CORSHandler(config.cors);
     }
-    
+
     // Handle CORS preflight requests
     if (request.method === 'OPTIONS') {
       this.logger.debug('Handling CORS preflight request', { requestId, origin });
       return this.corsHandler.handlePreflight(request);
     }
-    
+
     // Log incoming request
     this.logger.logRequest(
       request.method,
@@ -67,12 +68,12 @@ export class ProxyService {
       request.headers.get('user-agent') || undefined,
       request.headers.get('cf-connecting-ip') || undefined
     );
-    
+
     try {
       // Parse and validate JSON-RPC request
       const body = await request.text();
       let jsonRPCRequest: JSONRPCRequest;
-      
+
       try {
         jsonRPCRequest = JSON.parse(body);
       } catch (error) {
@@ -84,9 +85,9 @@ export class ProxyService {
       if (!this.isValidJSONRPC(jsonRPCRequest)) {
         this.logger.warn('Invalid JSON-RPC request format', { requestId, request: jsonRPCRequest });
         return this.createErrorResponse(
-          ErrorCode.INVALID_REQUEST, 
-          'Invalid Request', 
-          (jsonRPCRequest as any)?.id || null, 
+          ErrorCode.INVALID_REQUEST,
+          'Invalid Request',
+          (jsonRPCRequest as any)?.id || null,
           requestId
         );
       }
@@ -96,9 +97,9 @@ export class ProxyService {
       if (!chainId) {
         this.logger.warn('Chain ID not found in request', { requestId, url: request.url });
         return this.createErrorResponse(
-          ErrorCode.CHAIN_NOT_SUPPORTED, 
-          'Chain not supported', 
-          jsonRPCRequest.id, 
+          ErrorCode.CHAIN_NOT_SUPPORTED,
+          'Chain not supported',
+          jsonRPCRequest.id,
           requestId
         );
       }
@@ -108,9 +109,9 @@ export class ProxyService {
       if (!chainConfig) {
         this.logger.warn('Chain configuration not found', { requestId, chainId });
         return this.createErrorResponse(
-          ErrorCode.CHAIN_NOT_SUPPORTED, 
-          'Chain not supported', 
-          jsonRPCRequest.id, 
+          ErrorCode.CHAIN_NOT_SUPPORTED,
+          'Chain not supported',
+          jsonRPCRequest.id,
           requestId
         );
       }
@@ -120,40 +121,40 @@ export class ProxyService {
       if (healthyRPCs.length === 0) {
         this.logger.error('No healthy RPCs available', { requestId, chainId });
         return this.createErrorResponse(
-          ErrorCode.NO_HEALTHY_RPCS, 
-          'No healthy RPCs available', 
-          jsonRPCRequest.id, 
+          ErrorCode.NO_HEALTHY_RPCS,
+          'No healthy RPCs available',
+          jsonRPCRequest.id,
           requestId
         );
       }
 
       // Check cache first if available
       if (this.cacheService) {
-        const cacheKey = `${chainId}:${jsonRPCRequest.method}:${JSON.stringify(jsonRPCRequest.params || [])}`;
+        const cacheKey = generateCacheKey(chainId, jsonRPCRequest.method, jsonRPCRequest.params || []);
         const cachedResponse = await this.cacheService.getCachedRPCResponse(
           chainId.toString(),
           jsonRPCRequest.method,
           jsonRPCRequest.params || []
         );
-        
+
         if (cachedResponse) {
           this.logger.logCacheOperation('hit', cacheKey, 'proxy-service', undefined, requestId);
-          this.logger.debug('Cache hit for RPC request', { 
-            requestId, 
+          this.logger.debug('Cache hit for RPC request', {
+            requestId,
             method: jsonRPCRequest.method,
-            chainId 
+            chainId
           });
-          
+
           const headers = new Headers();
           headers.set('Content-Type', 'application/json');
           headers.set('X-Request-ID', requestId);
           headers.set('X-Cache', 'HIT');
-          
+
           const response = new Response(JSON.stringify(cachedResponse), {
             status: 200,
             headers
           });
-          
+
           // Add CORS headers if enabled
           return this.corsHandler ? this.corsHandler.addCORSHeaders(response, origin) : response;
         } else {
@@ -171,11 +172,11 @@ export class ProxyService {
 
       // Attempt proxy with retries
       const response = await this.proxyWithRetries(context, chainConfig);
-      
+
       // Add request ID to response headers
       const headers = new Headers(response.headers);
       headers.set('X-Request-ID', requestId);
-      
+
       // Log response and performance
       const duration = Date.now() - startTime;
       this.logger.logResponse(
@@ -185,7 +186,7 @@ export class ProxyService {
         duration,
         requestId
       );
-      
+
       this.logger.logPerformance(
         'proxy-request',
         duration,
@@ -193,7 +194,7 @@ export class ProxyService {
         requestId,
         { chainId, method: jsonRPCRequest.method }
       );
-      
+
       // Record metrics
       this.metricsService.recordUsage(
         url.pathname,
@@ -204,7 +205,7 @@ export class ProxyService {
         request.headers.get('user-agent') || undefined,
         request.headers.get('cf-connecting-ip') || undefined
       );
-      
+
       this.metricsService.recordPerformance(
         'proxy-request',
         duration,
@@ -212,22 +213,22 @@ export class ProxyService {
         'proxy-service',
         { chainId, method: jsonRPCRequest.method, statusCode: response.status }
       );
-      
+
       const finalResponse = new Response(response.body, {
         status: response.status,
         statusText: response.statusText,
         headers
       });
-      
+
       // Add CORS headers if enabled
       return this.corsHandler ? this.corsHandler.addCORSHeaders(finalResponse, origin) : finalResponse;
 
     } catch (error) {
-      this.logger.error('Unexpected error in handleRequest', { 
-        requestId, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      this.logger.error('Unexpected error in handleRequest', {
+        requestId,
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
-      
+
       // Record error metrics
       this.metricsService.recordError(
         error instanceof Error ? error.constructor.name : 'UnknownError',
@@ -236,11 +237,11 @@ export class ProxyService {
         error instanceof Error ? error.message : 'Unknown error',
         { requestId, url: request.url }
       );
-      
+
       const systemError = new SystemError('Internal error occurred during request processing');
       const handledError = errorHandler.handleError(systemError);
       return this.createErrorResponse(
-        ErrorCode.INTERNAL_ERROR, 
+        ErrorCode.INTERNAL_ERROR,
         'Internal error occurred during request processing',
         null,
         requestId,
@@ -250,12 +251,12 @@ export class ProxyService {
   }
 
   private async proxyWithRetries(
-    context: ProxyContext, 
-    chainConfig: ChainConfig, 
+    context: ProxyContext,
+    chainConfig: ChainConfig,
     maxRetries: number = DEFAULT_MAX_RETRIES
   ): Promise<Response> {
     let lastError: Error | null = null;
-    
+
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         // Select RPC endpoint using static method
@@ -265,26 +266,30 @@ export class ProxyService {
         }
 
         context.selectedRPC = selectedRPC;
-        
-        this.logger.debug('Attempting RPC call', { 
+
+        this.logger.debug('Attempting RPC call', {
           requestId: context.requestId,
-          attempt: attempt + 1, 
+          attempt: attempt + 1,
           maxRetries: maxRetries + 1,
           rpcUrl: selectedRPC.url,
-          chainId: context.chainId 
+          chainId: context.chainId
         });
 
         // Make the actual RPC call
         const response = await this.makeRPCCall(context);
-        
+
         if (response.ok) {
           const duration = Date.now() - context.startTime;
-          this.logger.info('RPC call successful', { 
+
+          // Record response time for RPC selector
+          RPCSelector.recordResponseTime(selectedRPC.url, duration);
+
+          this.logger.info('RPC call successful', {
             requestId: context.requestId,
             chainId: context.chainId,
             rpcUrl: selectedRPC.url,
             duration,
-            attempt: attempt + 1 
+            attempt: attempt + 1
           });
           return response;
         } else {
@@ -293,13 +298,13 @@ export class ProxyService {
 
       } catch (error) {
         lastError = error instanceof Error ? error : new Error('Unknown error');
-        
-        this.logger.warn('RPC call attempt failed', { 
+
+        this.logger.warn('RPC call attempt failed', {
           requestId: context.requestId,
-          attempt: attempt + 1, 
+          attempt: attempt + 1,
           maxRetries: maxRetries + 1,
           error: lastError.message,
-          chainId: context.chainId 
+          chainId: context.chainId
         });
 
         // If this isn't the last attempt, wait before retrying
@@ -311,13 +316,13 @@ export class ProxyService {
     }
 
     // All retries failed
-    this.logger.error('All RPC retry attempts failed', { 
+    this.logger.error('All RPC retry attempts failed', {
       requestId: context.requestId,
       chainId: context.chainId,
       maxRetries: maxRetries + 1,
-      finalError: lastError?.message 
+      finalError: lastError?.message
     });
-    
+
     const networkError = new NetworkError(lastError?.message || 'All RPC endpoints failed');
     const handledError = errorHandler.handleError(networkError);
     return errorHandler.createErrorResponse(handledError);
@@ -379,18 +384,18 @@ export class ProxyService {
                 context.request.params || [],
                 jsonResponse
               );
-              
+
               const cacheSetDuration = Date.now() - cacheSetStartTime;
-              const cacheKey = `${context.chainId}:${context.request.method}:${JSON.stringify(context.request.params || [])}`;
+              const cacheKey = generateCacheKey(context.chainId, context.request.method, context.request.params || []);
               this.logger.logCacheOperation('set', cacheKey, 'proxy-service', cacheSetDuration, context.requestId);
-              
+
               this.logger.debug('Response cached', {
                 requestId: context.requestId,
                 method: context.request.method,
                 chainId: context.chainId
               });
             }
-            
+
             // Log successful external call
             const callDuration = Date.now() - callStartTime;
             this.logger.logExternalCall(
@@ -403,17 +408,17 @@ export class ProxyService {
               context.requestId,
               true
             );
-            
+
             return new Response(responseText, {
               status: response.status,
               headers: response.headers,
             });
           }
         } catch (parseError) {
-          this.logger.warn('Invalid JSON response from RPC', { 
+          this.logger.warn('Invalid JSON response from RPC', {
             requestId: context.requestId,
             rpcUrl: selectedRPC.url,
-            parseError: parseError instanceof Error ? parseError.message : 'Unknown error' 
+            parseError: parseError instanceof Error ? parseError.message : 'Unknown error'
           });
         }
       }
@@ -422,7 +427,7 @@ export class ProxyService {
 
     } catch (error) {
       clearTimeout(timeoutId);
-      
+
       // Log failed external call
       const callDuration = Date.now() - callStartTime;
       this.logger.logExternalCall(
@@ -435,33 +440,33 @@ export class ProxyService {
         context.requestId,
         false
       );
-      
+
       if (error instanceof Error && error.name === 'AbortError') {
         throw new TimeoutError(`Request timeout after ${selectedRPC.timeout}ms`);
       }
-      
+
       throw error;
     }
   }
 
   private extractChainId(request: Request, jsonRPCRequest: JSONRPCRequest): number | string | null {
     const url = new URL(request.url);
-    
+
     // Try to extract from URL path (e.g., /rpc/1, /1, /sol-dev, /sol-main)
     const pathMatch = url.pathname.match(/\/(?:rpc\/)?([^\/]+)/);
     if (pathMatch) {
       const chainIdStr = pathMatch[1];
-      
+
       // Check if it's a number (EVM chains)
       const numericChainId = parseInt(chainIdStr, 10);
       if (!isNaN(numericChainId)) {
         return numericChainId;
       }
-      
+
       // Return as string for non-numeric chain IDs (Solana chains)
       return chainIdStr;
     }
-    
+
     // Try to extract from query parameters
     const chainIdParam = url.searchParams.get('chainId') || url.searchParams.get('chain');
     if (chainIdParam) {
@@ -472,7 +477,7 @@ export class ProxyService {
       // Return as string for non-numeric chain IDs
       return chainIdParam;
     }
-    
+
     // Try to extract from JSON-RPC params (if method supports it)
     if (jsonRPCRequest.params && Array.isArray(jsonRPCRequest.params)) {
       // Some methods might include chainId in params
@@ -488,7 +493,7 @@ export class ProxyService {
         }
       }
     }
-    
+
     // Default fallback
     return DEFAULT_CHAIN_ID;
   }
@@ -501,16 +506,16 @@ export class ProxyService {
       typeof request.method === 'string' &&
       request.method.length > 0 &&
       ('id' in request) &&
-      (request.id === null || 
-       typeof request.id === 'string' || 
-       typeof request.id === 'number')
+      (request.id === null ||
+        typeof request.id === 'string' ||
+        typeof request.id === 'number')
     );
   }
 
   private createErrorResponse(
-    code: ErrorCode | number, 
-    message: string, 
-    id: any, 
+    code: ErrorCode | number,
+    message: string,
+    id: any,
     requestId?: string,
     origin?: string | null
   ): Response {

@@ -36,7 +36,7 @@ export const APP_CONSTANTS = {
   API_ENDPOINTS: {
     ADMIN_BASE: '/admin',
     ADMIN_CHAINS: '/admin/chains',
-    ADMIN_RPC: '/admin/rpc',
+    ADMIN_RPC: '/admin/chains',
     ADMIN_CONFIG: '/admin/config',
     ADMIN_HEALTH: '/admin/health',
   },
@@ -55,6 +55,9 @@ export const APP_CONSTANTS = {
     CONFIRM_DELETE_CHAIN: 'Are you sure you want to delete chain',
     CONFIRM_DELETE_RPC: 'Are you sure you want to remove RPC',
     NO_RPCS_FOUND: 'No RPCs found for this chain',
+    HEALTH_CHECK_STARTED: 'Health check started...',
+    HEALTH_CHECK_COMPLETED: 'Health check completed',
+    HEALTH_CHECK_FAILED: 'Health check failed',
   },
 
   // CSS Classes and IDs
@@ -80,6 +83,11 @@ export const APP_CONSTANTS = {
     EDIT_CHAIN_NAME: 'editChainName',
     EDIT_CHAIN_SYMBOL: 'editChainSymbol',
     NEW_RPC_URL: 'newRpcUrl',
+    EDIT_RPC_URL: 'editRpcUrl',
+    EDIT_RPC_NAME: 'editRpcName',
+    EDIT_RPC_PRIORITY: 'editRpcPriority',
+    EDIT_RPC_TIMEOUT: 'editRpcTimeout',
+    EDIT_RPC_MAX_RETRIES: 'editRpcMaxRetries',
   },
 
   // Section IDs
@@ -89,6 +97,7 @@ export const APP_CONSTANTS = {
     RPC_MANAGEMENT: 'rpcManagementSection',
     RPC_CHAIN_INFO: 'rpcChainInfo',
     RPC_LIST: 'rpcList',
+    EDIT_RPC: 'editRpcSection',
     AUTH_STATUS: 'authStatus',
     CHAINS_GRID: 'chainsGrid',
   },

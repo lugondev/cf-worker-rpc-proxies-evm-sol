@@ -4,6 +4,7 @@ import { HealthService } from '../services/health_service';
 import { Validator, ValidationError } from '../utils/validation';
 import { logger } from '../utils/logger';
 import { APP_CONSTANTS } from '../constants';
+import { createAllowAllCORSConfig, createDevelopmentCORSConfig } from '../utils/cors';
 
 export class ManagementRoutes {
   private env: Env;
@@ -33,9 +34,9 @@ export class ManagementRoutes {
    * Create standardized response with proper HTTP status codes
    */
   private createResponse<T>(
-    success: boolean, 
-    data?: T, 
-    error?: string, 
+    success: boolean,
+    data?: T,
+    error?: string,
     statusCode?: number
   ): Response {
     const response: ManagementResponse<T> = {
@@ -92,7 +93,7 @@ export class ManagementRoutes {
   async getConfig(request: Request): Promise<Response> {
     try {
       if (!this.authenticateAdmin(request)) {
-        logger.warn('Unauthorized config access attempt', { 
+        logger.warn('Unauthorized config access attempt', {
           ip: request.headers.get('CF-Connecting-IP'),
           userAgent: request.headers.get('User-Agent')
         });
@@ -105,8 +106,8 @@ export class ManagementRoutes {
     } catch (error) {
       logger.error('Failed to get config', { error: error instanceof Error ? error.message : error });
       return this.createResponse(
-        false, 
-        null, 
+        false,
+        null,
         error instanceof Error ? error.message : 'Failed to retrieve configuration',
         APP_CONSTANTS.HTTP_STATUS.INTERNAL_SERVER_ERROR
       );
@@ -125,21 +126,21 @@ export class ManagementRoutes {
       const contentType = request.headers.get('Content-Type');
       if (!contentType?.includes('application/json')) {
         return this.createResponse(
-          false, 
-          null, 
-          'Content-Type must be application/json', 
+          false,
+          null,
+          'Content-Type must be application/json',
           APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST
         );
       }
 
       const newConfig = await request.json() as RPCConfig;
-      
+
       // Basic validation for configuration structure
       if (!newConfig || typeof newConfig !== 'object') {
         return this.createResponse(
-          false, 
-          null, 
-          'Invalid configuration format', 
+          false,
+          null,
+          'Invalid configuration format',
           APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST
         );
       }
@@ -147,9 +148,9 @@ export class ManagementRoutes {
       // Validate required properties
       if (!newConfig.chains || !newConfig.globalSettings) {
         return this.createResponse(
-          false, 
-          null, 
-          'Configuration must include chains and globalSettings', 
+          false,
+          null,
+          'Configuration must include chains and globalSettings',
           APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST
         );
       }
@@ -161,11 +162,11 @@ export class ManagementRoutes {
       if (error instanceof ValidationError) {
         return this.createResponse(false, null, error.message, APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST);
       }
-      
+
       logger.error('Failed to update config', { error: error instanceof Error ? error.message : error });
       return this.createResponse(
-        false, 
-        null, 
+        false,
+        null,
         error instanceof Error ? error.message : 'Failed to update configuration',
         APP_CONSTANTS.HTTP_STATUS.INTERNAL_SERVER_ERROR
       );
@@ -186,8 +187,8 @@ export class ManagementRoutes {
     } catch (error) {
       logger.error('Failed to get CORS config', { error: error instanceof Error ? error.message : error });
       return this.createResponse(
-        false, 
-        null, 
+        false,
+        null,
         error instanceof Error ? error.message : 'Failed to get CORS configuration',
         APP_CONSTANTS.HTTP_STATUS.INTERNAL_SERVER_ERROR
       );
@@ -206,21 +207,21 @@ export class ManagementRoutes {
       const contentType = request.headers.get('Content-Type');
       if (!contentType?.includes('application/json')) {
         return this.createResponse(
-          false, 
-          null, 
-          'Content-Type must be application/json', 
+          false,
+          null,
+          'Content-Type must be application/json',
           APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST
         );
       }
 
       const corsConfig = await request.json() as CORSConfig;
-      
+
       // Basic validation for CORS configuration
       if (!corsConfig || typeof corsConfig !== 'object') {
         return this.createResponse(
-          false, 
-          null, 
-          'Invalid CORS configuration format', 
+          false,
+          null,
+          'Invalid CORS configuration format',
           APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST
         );
       }
@@ -228,18 +229,18 @@ export class ManagementRoutes {
       // Validate required properties
       if (typeof corsConfig.enabled !== 'boolean') {
         return this.createResponse(
-          false, 
-          null, 
-          'CORS enabled property must be a boolean', 
+          false,
+          null,
+          'CORS enabled property must be a boolean',
           APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST
         );
       }
 
       if (!Array.isArray(corsConfig.allowedOrigins)) {
         return this.createResponse(
-          false, 
-          null, 
-          'CORS allowedOrigins must be an array', 
+          false,
+          null,
+          'CORS allowedOrigins must be an array',
           APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST
         );
       }
@@ -247,7 +248,7 @@ export class ManagementRoutes {
       // Get current config and update only CORS part
       const currentConfig = await this.configService.getConfig();
       currentConfig.cors = corsConfig;
-      
+
       await this.configService.saveConfig(currentConfig);
       logger.info('CORS config updated successfully', { corsConfig });
       return this.createResponse(true, { message: 'CORS configuration updated successfully', cors: corsConfig });
@@ -255,12 +256,128 @@ export class ManagementRoutes {
       if (error instanceof ValidationError) {
         return this.createResponse(false, null, error.message, APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST);
       }
-      
+
       logger.error('Failed to update CORS config', { error: error instanceof Error ? error.message : error });
       return this.createResponse(
-        false, 
-        null, 
+        false,
+        null,
         error instanceof Error ? error.message : 'Failed to update CORS configuration',
+        APP_CONSTANTS.HTTP_STATUS.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  /**
+   * POST /admin/cors/enable-all - Enable allow-all CORS configuration
+   */
+  async enableAllowAllCORS(request: Request): Promise<Response> {
+    try {
+      if (!this.authenticateAdmin(request)) {
+        return this.createResponse(false, null, 'Unauthorized', APP_CONSTANTS.HTTP_STATUS.UNAUTHORIZED);
+      }
+
+      // Create allow-all CORS configuration
+      const allowAllCORSConfig = createAllowAllCORSConfig();
+
+      // Get current config and update only CORS part
+      const currentConfig = await this.configService.getConfig();
+      currentConfig.cors = allowAllCORSConfig;
+
+      await this.configService.saveConfig(currentConfig);
+      logger.info('Allow-all CORS configuration enabled successfully', { corsConfig: allowAllCORSConfig });
+
+      return this.createResponse(true, {
+        message: 'Allow-all CORS configuration enabled successfully',
+        cors: allowAllCORSConfig,
+        warning: 'This configuration allows all origins and should only be used in development or testing environments'
+      });
+    } catch (error) {
+      logger.error('Failed to enable allow-all CORS', { error: error instanceof Error ? error.message : error });
+      return this.createResponse(
+        false,
+        null,
+        error instanceof Error ? error.message : 'Failed to enable allow-all CORS configuration',
+        APP_CONSTANTS.HTTP_STATUS.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  /**
+   * POST /admin/cors/disable-all - Disable allow-all CORS and restore development defaults
+   */
+  async disableAllowAllCORS(request: Request): Promise<Response> {
+    try {
+      if (!this.authenticateAdmin(request)) {
+        return this.createResponse(false, null, 'Unauthorized', APP_CONSTANTS.HTTP_STATUS.UNAUTHORIZED);
+      }
+
+      // Create development CORS configuration
+      const developmentCORSConfig = createDevelopmentCORSConfig();
+
+      // Get current config and update only CORS part
+      const currentConfig = await this.configService.getConfig();
+      currentConfig.cors = developmentCORSConfig;
+
+      await this.configService.saveConfig(currentConfig);
+      logger.info('Allow-all CORS configuration disabled, restored to development defaults', { corsConfig: developmentCORSConfig });
+
+      return this.createResponse(true, {
+        message: 'Allow-all CORS configuration disabled successfully',
+        cors: developmentCORSConfig,
+        info: 'Restored to development CORS configuration'
+      });
+    } catch (error) {
+      logger.error('Failed to disable allow-all CORS', { error: error instanceof Error ? error.message : error });
+      return this.createResponse(
+        false,
+        null,
+        error instanceof Error ? error.message : 'Failed to disable allow-all CORS configuration',
+        APP_CONSTANTS.HTTP_STATUS.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  /**
+   * GET /admin/cors/status - Get CORS status with additional information
+   */
+  async getCORSStatus(request: Request): Promise<Response> {
+    try {
+      const config = await this.configService.getConfig();
+      const corsConfig = config.cors;
+
+      // Determine if this is an allow-all configuration
+      const isAllowAll = corsConfig.allowedOrigins.includes('*') &&
+        corsConfig.allowedMethods.includes('*') &&
+        corsConfig.allowedHeaders.includes('*');
+
+      // Determine configuration type
+      let configurationType = 'custom';
+      if (isAllowAll) {
+        configurationType = 'allow-all';
+      } else if (corsConfig.allowedOrigins.includes('http://localhost:3000') &&
+        corsConfig.allowedOrigins.includes('http://localhost:8080')) {
+        configurationType = 'development';
+      }
+
+      return this.createResponse(true, {
+        cors: corsConfig,
+        status: {
+          enabled: corsConfig.enabled,
+          type: configurationType,
+          isAllowAll: isAllowAll,
+          allowedOriginsCount: corsConfig.allowedOrigins.length,
+          allowedMethodsCount: corsConfig.allowedMethods.length,
+          allowedHeadersCount: corsConfig.allowedHeaders.length,
+          credentialsEnabled: corsConfig.credentials
+        },
+        timestamp: Date.now()
+      });
+    } catch (error) {
+      logger.error('Failed to get CORS status', { error: error instanceof Error ? error.message : error });
+      return this.createResponse(
+        false,
+        null,
+        error instanceof Error ? error.message : 'Failed to get CORS status',
         APP_CONSTANTS.HTTP_STATUS.INTERNAL_SERVER_ERROR
       );
     }
@@ -277,11 +394,11 @@ export class ManagementRoutes {
 
       const chains = await this.configService.getAvailableChains();
       const config = await this.configService.getConfig();
-      
+
       const chainDetails = chains
         .map(chainId => {
           const chainConfig = config.chains[chainId.toString()];
-          
+
           // Skip if chain config is null or undefined
           if (!chainConfig) {
             logger.warn(`Chain config not found for chainId: ${chainId}`);
@@ -308,8 +425,8 @@ export class ManagementRoutes {
     } catch (error) {
       logger.error('Error in getChains:', error);
       return this.createResponse(
-        false, 
-        null, 
+        false,
+        null,
         error instanceof Error ? error.message : 'Failed to retrieve chains',
         APP_CONSTANTS.HTTP_STATUS.INTERNAL_SERVER_ERROR
       );
@@ -331,9 +448,9 @@ export class ManagementRoutes {
 
       if (!chainConfig) {
         return this.createResponse(
-          false, 
-          null, 
-          `Chain ${chainId} not found`, 
+          false,
+          null,
+          `Chain ${chainId} not found`,
           APP_CONSTANTS.HTTP_STATUS.NOT_FOUND
         );
       }
@@ -343,11 +460,11 @@ export class ManagementRoutes {
       if (error instanceof ValidationError) {
         return this.createResponse(false, null, error.message, APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST);
       }
-      
+
       logger.error('Failed to get chain config', { error: error instanceof Error ? error.message : error });
       return this.createResponse(
-        false, 
-        null, 
+        false,
+        null,
         error instanceof Error ? error.message : 'Failed to retrieve chain configuration',
         APP_CONSTANTS.HTTP_STATUS.INTERNAL_SERVER_ERROR
       );
@@ -366,18 +483,18 @@ export class ManagementRoutes {
       Validator.validateChainId(chainId);
       const chainConfig = await request.json() as ChainConfig;
       await this.configService.updateChainConfig(chainId, chainConfig);
-      
+
       logger.info('Chain config updated successfully', { chainId });
       return this.createResponse(true, { message: `Chain ${chainId} configuration updated successfully` });
     } catch (error) {
       if (error instanceof ValidationError) {
         return this.createResponse(false, null, error.message, APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST);
       }
-      
+
       logger.error('Failed to update chain config', { error: error instanceof Error ? error.message : error });
       return this.createResponse(
-        false, 
-        null, 
+        false,
+        null,
         error instanceof Error ? error.message : 'Failed to update chain configuration',
         APP_CONSTANTS.HTTP_STATUS.INTERNAL_SERVER_ERROR
       );
@@ -395,18 +512,18 @@ export class ManagementRoutes {
 
       Validator.validateChainId(chainId);
       await this.configService.removeChainConfig(chainId);
-      
+
       logger.info('Chain config removed successfully', { chainId });
       return this.createResponse(true, { message: `Chain ${chainId} configuration removed successfully` });
     } catch (error) {
       if (error instanceof ValidationError) {
         return this.createResponse(false, null, error.message, APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST);
       }
-      
+
       logger.error('Failed to remove chain config', { error: error instanceof Error ? error.message : error });
       return this.createResponse(
-        false, 
-        null, 
+        false,
+        null,
         error instanceof Error ? error.message : 'Failed to remove chain configuration',
         APP_CONSTANTS.HTTP_STATUS.INTERNAL_SERVER_ERROR
       );
@@ -424,30 +541,30 @@ export class ManagementRoutes {
 
       Validator.validateChainId(chainId);
       const rpcData = await request.json() as Partial<RPCEndpoint>;
-      
+
       if (!rpcData.url) {
         return this.createResponse(
-          false, 
-          null, 
-          'RPC URL is required', 
+          false,
+          null,
+          'RPC URL is required',
           APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST
         );
       }
 
       Validator.validateRPCUrl(rpcData.url);
       await this.configService.addRPCEndpoint(chainId, rpcData as RPCEndpoint);
-      
+
       logger.info('RPC endpoint added successfully', { chainId, url: rpcData.url });
       return this.createResponse(true, { message: `RPC endpoint added to chain ${chainId} successfully` });
     } catch (error) {
       if (error instanceof ValidationError) {
         return this.createResponse(false, null, error.message, APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST);
       }
-      
+
       logger.error('Failed to add RPC endpoint', { error: error instanceof Error ? error.message : error });
       return this.createResponse(
-        false, 
-        null, 
+        false,
+        null,
         error instanceof Error ? error.message : 'Failed to add RPC endpoint',
         APP_CONSTANTS.HTTP_STATUS.INTERNAL_SERVER_ERROR
       );
@@ -465,12 +582,12 @@ export class ManagementRoutes {
 
       const url = new URL(request.url);
       const rpcUrl = url.searchParams.get('url');
-      
+
       if (!rpcUrl) {
         return this.createResponse(
-          false, 
-          null, 
-          'RPC URL parameter is required', 
+          false,
+          null,
+          'RPC URL parameter is required',
           APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST
         );
       }
@@ -478,18 +595,18 @@ export class ManagementRoutes {
       Validator.validateChainId(chainId);
       Validator.validateRPCUrl(rpcUrl);
       await this.configService.removeRPCEndpoint(chainId, rpcUrl);
-      
+
       logger.info('RPC endpoint removed successfully', { chainId, url: rpcUrl });
       return this.createResponse(true, { message: `RPC endpoint removed from chain ${chainId} successfully` });
     } catch (error) {
       if (error instanceof ValidationError) {
         return this.createResponse(false, null, error.message, APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST);
       }
-      
+
       logger.error('Failed to remove RPC endpoint', { error: error instanceof Error ? error.message : error });
       return this.createResponse(
-        false, 
-        null, 
+        false,
+        null,
         error instanceof Error ? error.message : 'Failed to remove RPC endpoint',
         APP_CONSTANTS.HTTP_STATUS.INTERNAL_SERVER_ERROR
       );
@@ -510,8 +627,8 @@ export class ManagementRoutes {
     } catch (error) {
       logger.error('Failed to get health status', { error: error instanceof Error ? error.message : error });
       return this.createResponse(
-        false, 
-        null, 
+        false,
+        null,
         error instanceof Error ? error.message : 'Failed to retrieve health status',
         APP_CONSTANTS.HTTP_STATUS.INTERNAL_SERVER_ERROR
       );
@@ -534,11 +651,11 @@ export class ManagementRoutes {
       if (error instanceof ValidationError) {
         return this.createResponse(false, null, error.message, APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST);
       }
-      
+
       logger.error('Failed to get chain health', { error: error instanceof Error ? error.message : error });
       return this.createResponse(
-        false, 
-        null, 
+        false,
+        null,
         error instanceof Error ? error.message : 'Failed to retrieve chain health',
         APP_CONSTANTS.HTTP_STATUS.INTERNAL_SERVER_ERROR
       );
@@ -557,15 +674,81 @@ export class ManagementRoutes {
       // Run health check and return results
       const results = await this.healthService.checkAllHealth();
       await this.healthService.saveHealthResults(results);
-      
+
       logger.info('Health check triggered successfully');
       return this.createResponse(true, results);
     } catch (error) {
       logger.error('Failed to trigger health check', { error: error instanceof Error ? error.message : error });
       return this.createResponse(
-        false, 
-        null, 
+        false,
+        null,
         error instanceof Error ? error.message : 'Failed to trigger health check',
+        APP_CONSTANTS.HTTP_STATUS.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  /**
+   * POST /admin/chains/:chainId/rpcs/health - Check health of specific RPC
+   */
+  async checkRPCHealth(request: Request, chainId: number | string): Promise<Response> {
+    try {
+      if (!this.authenticateAdmin(request)) {
+        return this.createResponse(false, null, 'Unauthorized', APP_CONSTANTS.HTTP_STATUS.UNAUTHORIZED);
+      }
+
+      Validator.validateChainId(chainId);
+
+      const requestData = await request.json() as { rpcUrl: string };
+      if (!requestData.rpcUrl) {
+        return this.createResponse(
+          false,
+          null,
+          'RPC URL is required in request body',
+          APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST
+        );
+      }
+
+      Validator.validateRPCUrl(requestData.rpcUrl);
+
+      // Get chain config to find the RPC endpoint
+      const config = await this.configService.getConfig();
+      const chainConfig = config.chains[chainId.toString()];
+
+      if (!chainConfig) {
+        return this.createResponse(
+          false,
+          null,
+          `Chain ${chainId} not found`,
+          APP_CONSTANTS.HTTP_STATUS.NOT_FOUND
+        );
+      }
+
+      const rpcEndpoint = chainConfig.rpcs.find(rpc => rpc.url === requestData.rpcUrl);
+      if (!rpcEndpoint) {
+        return this.createResponse(
+          false,
+          null,
+          `RPC endpoint ${requestData.rpcUrl} not found in chain ${chainId}`,
+          APP_CONSTANTS.HTTP_STATUS.NOT_FOUND
+        );
+      }
+
+      // Check health of the specific RPC
+      const healthResult = await this.healthService.checkRPCHealth(chainId, rpcEndpoint);
+
+      logger.info('RPC health check completed', { chainId, rpcUrl: requestData.rpcUrl, isHealthy: healthResult.isHealthy });
+      return this.createResponse(true, healthResult);
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        return this.createResponse(false, null, error.message, APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST);
+      }
+
+      logger.error('Failed to check RPC health', { error: error instanceof Error ? error.message : error });
+      return this.createResponse(
+        false,
+        null,
+        error instanceof Error ? error.message : 'Failed to check RPC health',
         APP_CONSTANTS.HTTP_STATUS.INTERNAL_SERVER_ERROR
       );
     }
@@ -582,21 +765,21 @@ export class ManagementRoutes {
 
       Validator.validateChainId(chainId);
       Validator.validateRPCUrl(rpcUrl);
-      
+
       const requestData = await request.json() as { isActive: boolean };
       await this.configService.updateRPCStatus(chainId, rpcUrl, requestData.isActive);
-      
+
       logger.info('RPC status updated successfully', { chainId, rpcUrl, isActive: requestData.isActive });
       return this.createResponse(true, { message: `RPC status updated successfully` });
     } catch (error) {
       if (error instanceof ValidationError) {
         return this.createResponse(false, null, error.message, APP_CONSTANTS.HTTP_STATUS.BAD_REQUEST);
       }
-      
+
       logger.error('Failed to update RPC status', { error: error instanceof Error ? error.message : error });
       return this.createResponse(
-        false, 
-        null, 
+        false,
+        null,
         error instanceof Error ? error.message : 'Failed to update RPC status',
         APP_CONSTANTS.HTTP_STATUS.INTERNAL_SERVER_ERROR
       );
@@ -618,8 +801,8 @@ export class ManagementRoutes {
     } catch (error) {
       logger.error('Failed to reset config', { error: error instanceof Error ? error.message : error });
       return this.createResponse(
-        false, 
-        null, 
+        false,
+        null,
         error instanceof Error ? error.message : 'Failed to reset configuration',
         APP_CONSTANTS.HTTP_STATUS.INTERNAL_SERVER_ERROR
       );
@@ -637,11 +820,11 @@ export class ManagementRoutes {
 
       const config = await this.configService.getConfig();
       const healthSummary = await this.healthService.getHealthSummary();
-      
+
       const stats = {
         totalChains: Object.keys(config.chains).length,
         totalRPCs: Object.values(config.chains).reduce((total, chain) => total + chain.rpcs.length, 0),
-        activeRPCs: Object.values(config.chains).reduce((total, chain) => 
+        activeRPCs: Object.values(config.chains).reduce((total, chain) =>
           total + chain.rpcs.filter(rpc => rpc.isActive).length, 0),
         healthSummary,
         lastUpdated: Date.now()
@@ -651,8 +834,8 @@ export class ManagementRoutes {
     } catch (error) {
       logger.error('Failed to get stats', { error: error instanceof Error ? error.message : error });
       return this.createResponse(
-        false, 
-        null, 
+        false,
+        null,
         error instanceof Error ? error.message : 'Failed to retrieve statistics',
         APP_CONSTANTS.HTTP_STATUS.INTERNAL_SERVER_ERROR
       );

@@ -146,6 +146,9 @@ export class AdminClientService {
                 <p><strong>Chain ID:</strong> \${chainId}</p>
                 <p><strong>RPCs:</strong> \${activeRpcCount}/\${rpcCount} active</p>
                 <div style="margin-top: 15px;">
+                  <button class="${APP_CONSTANTS.UI_ELEMENTS.BUTTON} success" onclick="copyProxyUrl('\${chainId}', '\${name}')">
+                    📋 Copy Proxy URL
+                  </button>
                   <button class="${APP_CONSTANTS.UI_ELEMENTS.BUTTON}" onclick="editChain('\${chainId}', '\${name}', '\${symbol}')">
                     ✏️ Edit
                   </button>
@@ -188,6 +191,18 @@ export class AdminClientService {
 
         function hideRpcManagement() {
           document.getElementById('${APP_CONSTANTS.SECTIONS.RPC_MANAGEMENT}').style.display = 'none';
+        }
+
+        function showEditRpcForm() {
+          document.getElementById('${APP_CONSTANTS.SECTIONS.EDIT_RPC}').style.display = 'block';
+          document.getElementById('${APP_CONSTANTS.SECTIONS.ADD_CHAIN}').style.display = 'none';
+          document.getElementById('${APP_CONSTANTS.SECTIONS.EDIT_CHAIN}').style.display = 'none';
+          // Keep RPC management visible
+        }
+
+        function hideEditRpcForm() {
+          document.getElementById('${APP_CONSTANTS.SECTIONS.EDIT_RPC}').style.display = 'none';
+          document.getElementById('editRpcForm').reset();
         }
 
         // CRUD Operations
@@ -342,7 +357,10 @@ export class AdminClientService {
           currentRpcChainId = chainId;
           
           document.getElementById('${APP_CONSTANTS.SECTIONS.RPC_CHAIN_INFO}').innerHTML = 
-            \`<h3>Managing RPCs for: \${chainName} (\${chainId})</h3>\`;
+            \`<h3>Managing RPCs for: \${chainName} (\${chainId})</h3>
+            <button class="${APP_CONSTANTS.UI_ELEMENTS.BUTTON} success" onclick="copyProxyUrl('\${chainId}', '\${chainName}')" style="margin-top: 10px;">
+              📋 Copy Proxy URL
+            </button>\`;
           document.getElementById('${APP_CONSTANTS.SECTIONS.ADD_CHAIN}').style.display = 'none';
           document.getElementById('${APP_CONSTANTS.SECTIONS.EDIT_CHAIN}').style.display = 'none';
           document.getElementById('${APP_CONSTANTS.SECTIONS.RPC_MANAGEMENT}').style.display = 'block';
@@ -378,25 +396,57 @@ export class AdminClientService {
             return;
           }
 
-          const html = \`
-            <h4>Current RPCs:</h4>
-            \${rpcs.map((rpc, index) => \`
-              <div class="rpc-item">
-                <p><strong>URL:</strong> \${rpc.url}</p>
-                <p><strong>Status:</strong> \${rpc.isActive ? '✅ Active' : '❌ Inactive'}</p>
-                <p><strong>Priority:</strong> \${rpc.priority || 1}</p>
-                <button class="${APP_CONSTANTS.UI_ELEMENTS.BUTTON}" onclick="toggleRpcStatus('\${rpc.url}', \${!rpc.isActive})" 
-                        style="background: \${rpc.isActive ? '${APP_CONSTANTS.COLORS.WARNING}' : '${APP_CONSTANTS.COLORS.SUCCESS}'};">
-                  \${rpc.isActive ? 'Deactivate' : 'Activate'}
-                </button>
-                <button class="${APP_CONSTANTS.UI_ELEMENTS.BUTTON} danger" onclick="removeRpc('\${rpc.url}')" style="margin-left: 5px;">
-                  Remove
-                </button>
-              </div>
-            \`).join('')}
-          \`;
+          const rpcItems = rpcs.map((rpc, index) => {
+            let healthBadge = '';
+            if (rpc.healthStatus) {
+              healthBadge = rpc.healthStatus.isHealthy ? 
+                '<span class="health-badge healthy">✅ Healthy</span>' : 
+                '<span class="health-badge unhealthy">❌ Unhealthy</span>';
+            }
+            
+            let healthDetails = '';
+            if (rpc.healthStatus) {
+              const parts = [];
+              parts.push('Response: ' + rpc.healthStatus.responseTime + 'ms');
+              if (rpc.healthStatus.blockNumber) {
+                parts.push('Block: ' + rpc.healthStatus.blockNumber);
+              }
+              if (rpc.healthStatus.error) {
+                parts.push('Error: ' + rpc.healthStatus.error);
+              }
+              if (rpc.healthStatus.lastChecked) {
+                parts.push('Checked: ' + new Date(rpc.healthStatus.lastChecked).toLocaleTimeString());
+              }
+              healthDetails = '<div class="health-details">' + parts.join(' • ') + '</div>';
+            }
+
+            const nameRow = rpc.name ? '<div><strong>Name:</strong> ' + rpc.name + '</div>' : '';
+            const statusBadge = rpc.isActive ? 
+              '<span style="color: #28a745;">● Active</span>' : 
+              '<span style="color: #dc3545;">● Inactive</span>';
+            const toggleText = rpc.isActive ? 'Deactivate' : 'Activate';
+            const toggleColor = rpc.isActive ? '${APP_CONSTANTS.COLORS.WARNING}' : '${APP_CONSTANTS.COLORS.SUCCESS}';
+
+            return '<div class="rpc-item" id="rpc-' + index + '">' +
+              '<div class="rpc-url">' + rpc.url + ' ' + healthBadge + '</div>' +
+              nameRow +
+              '<div class="rpc-config">' +
+                '<span>' + statusBadge + '</span>' +
+                '<span>Priority: ' + (rpc.priority || 1) + '</span>' +
+                '<span>Timeout: ' + (rpc.timeout || 5000) + 'ms</span>' +
+                '<span>Retries: ' + (rpc.maxRetries || 3) + '</span>' +
+              '</div>' +
+              healthDetails +
+              '<div class="rpc-actions">' +
+                '<button class="${APP_CONSTANTS.UI_ELEMENTS.BUTTON}" onclick="editRpc(\\'' + rpc.url + '\\', ' + JSON.stringify(rpc).replace(/"/g, '&quot;') + ')">✏️ Edit</button>' +
+                '<button class="${APP_CONSTANTS.UI_ELEMENTS.BUTTON}" onclick="checkRpcHealth(\\'' + rpc.url + '\\', ' + index + ')" style="background: ${APP_CONSTANTS.COLORS.SECONDARY};">🏥 Health</button>' +
+                '<button class="${APP_CONSTANTS.UI_ELEMENTS.BUTTON}" onclick="toggleRpcStatus(\\'' + rpc.url + '\\', ' + !rpc.isActive + ')" style="background: ' + toggleColor + ';">' + toggleText + '</button>' +
+                '<button class="${APP_CONSTANTS.UI_ELEMENTS.BUTTON} danger" onclick="removeRpc(\\'' + rpc.url + '\\')">🗑️</button>' +
+              '</div>' +
+            '</div>';
+          }).join('');
           
-          container.innerHTML = html;
+          container.innerHTML = '<h4 style="margin: 10px 0; font-size: 14px; color: #666;">RPCs (' + rpcs.length + ')</h4>' + rpcItems;
         }
 
         async function addRpc() {
@@ -503,6 +553,182 @@ export class AdminClientService {
             log(\`Error updating RPC status: \${error.message}\`);
             showStatus(\`Error updating RPC status: \${error.message}\`, true);
           }
+        }
+
+        // RPC Editing Functions
+        function editRpc(rpcUrl, rpcData) {
+          log(\`Editing RPC: \${rpcUrl}\`);
+          
+          // Parse rpcData if it's a string
+          const rpc = typeof rpcData === 'string' ? JSON.parse(rpcData.replace(/&quot;/g, '"')) : rpcData;
+          
+          document.getElementById('${APP_CONSTANTS.FORM_FIELDS.EDIT_RPC_URL}').value = rpc.url;
+          document.getElementById('${APP_CONSTANTS.FORM_FIELDS.EDIT_RPC_NAME}').value = rpc.name || '';
+          document.getElementById('${APP_CONSTANTS.FORM_FIELDS.EDIT_RPC_PRIORITY}').value = rpc.priority || 1;
+          document.getElementById('${APP_CONSTANTS.FORM_FIELDS.EDIT_RPC_TIMEOUT}').value = rpc.timeout || 5000;
+          document.getElementById('${APP_CONSTANTS.FORM_FIELDS.EDIT_RPC_MAX_RETRIES}').value = rpc.maxRetries || 3;
+          
+          showEditRpcForm();
+        }
+
+        async function updateRpc() {
+          const rpcUrl = document.getElementById('${APP_CONSTANTS.FORM_FIELDS.EDIT_RPC_URL}').value;
+          const name = document.getElementById('${APP_CONSTANTS.FORM_FIELDS.EDIT_RPC_NAME}').value;
+          const priority = parseInt(document.getElementById('${APP_CONSTANTS.FORM_FIELDS.EDIT_RPC_PRIORITY}').value);
+          const timeout = parseInt(document.getElementById('${APP_CONSTANTS.FORM_FIELDS.EDIT_RPC_TIMEOUT}').value);
+          const maxRetries = parseInt(document.getElementById('${APP_CONSTANTS.FORM_FIELDS.EDIT_RPC_MAX_RETRIES}').value);
+
+          if (!currentRpcChainId) {
+            alert('No chain selected');
+            return;
+          }
+
+          log(\`Updating RPC \${rpcUrl}\`);
+
+          try {
+            // Get current chain config
+            const getResponse = await fetch(\`${APP_CONSTANTS.API_ENDPOINTS.ADMIN_CHAINS}/\${currentRpcChainId}\`, {
+              headers: {
+                'X-API-Key': apiKey
+              }
+            });
+
+            if (!getResponse.ok) {
+              throw new Error('Failed to get current chain config');
+            }
+
+            const currentConfig = await getResponse.json();
+            const chainData = currentConfig.data;
+            
+            // Find and update the RPC in the chain config
+            const rpcIndex = chainData.rpcs.findIndex(r => r.url === rpcUrl);
+            if (rpcIndex === -1) {
+              throw new Error('RPC not found in chain config');
+            }
+
+            chainData.rpcs[rpcIndex] = {
+              ...chainData.rpcs[rpcIndex],
+              name: name || undefined,
+              priority: priority,
+              timeout: timeout,
+              maxRetries: maxRetries
+            };
+
+            // Update the entire chain config
+            const response = await fetch(\`${APP_CONSTANTS.API_ENDPOINTS.ADMIN_CHAINS}/\${currentRpcChainId}\`, {
+              method: 'PUT',
+              headers: {
+                'X-API-Key': apiKey,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(chainData)
+            });
+
+            if (response.ok) {
+              log('${APP_CONSTANTS.MESSAGES.RPC_UPDATED}');
+              showStatus('${APP_CONSTANTS.MESSAGES.RPC_UPDATED}');
+              hideEditRpcForm();
+              await loadRpcs(currentRpcChainId);
+            } else {
+              const error = await response.text();
+              log(\`Failed to update RPC: \${error}\`);
+              showStatus(\`Failed to update RPC: \${error}\`, true);
+            }
+          } catch (error) {
+            log(\`Error updating RPC: \${error.message}\`);
+            showStatus(\`Error updating RPC: \${error.message}\`, true);
+          }
+        }
+
+        // Health Check Functions
+        async function checkRpcHealth(rpcUrl, rpcIndex) {
+          log(\`Checking health for RPC: \${rpcUrl}\`);
+          
+          const rpcItem = document.getElementById(\`rpc-\${rpcIndex}\`);
+          if (rpcItem) {
+            // Add checking badge
+            const urlDiv = rpcItem.querySelector('.rpc-url');
+            if (urlDiv) {
+              const existingBadge = urlDiv.querySelector('.health-badge');
+              if (existingBadge) existingBadge.remove();
+              urlDiv.innerHTML += ' <span class=\"health-badge checking\">⏳ Checking...</span>';
+            }
+          }
+
+          try {
+            const response = await fetch(\`${APP_CONSTANTS.API_ENDPOINTS.ADMIN_CHAINS}/\${currentRpcChainId}/rpcs/health\`, {
+              method: 'POST',
+              headers: {
+                'X-API-Key': apiKey,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ rpcUrl: rpcUrl })
+            });
+
+            if (response.ok) {
+              const result = await response.json();
+              log(\`Health check completed for \${rpcUrl}: \${result.data.isHealthy ? 'Healthy' : 'Unhealthy'}\`);
+              
+              // Reload RPCs to show updated health status
+              await loadRpcs(currentRpcChainId);
+            } else {
+              const error = await response.text();
+              log(\`Health check failed: \${error}\`);
+              showStatus('${APP_CONSTANTS.MESSAGES.HEALTH_CHECK_FAILED}', true);
+            }
+          } catch (error) {
+            log(\`Error checking RPC health: \${error.message}\`);
+            showStatus(\`Error checking RPC health: \${error.message}\`, true);
+          }
+        }
+
+        async function checkAllRpcsHealth() {
+          if (!currentRpcChainId) {
+            alert('No chain selected');
+            return;
+          }
+
+          log('${APP_CONSTANTS.MESSAGES.HEALTH_CHECK_STARTED}');
+          showStatus('${APP_CONSTANTS.MESSAGES.HEALTH_CHECK_STARTED}');
+
+          try {
+            const response = await fetch(\`${APP_CONSTANTS.API_ENDPOINTS.ADMIN_HEALTH}/\${currentRpcChainId}\`, {
+              method: 'POST',
+              headers: {
+                'X-API-Key': apiKey
+              }
+            });
+
+            if (response.ok) {
+              const result = await response.json();
+              log('${APP_CONSTANTS.MESSAGES.HEALTH_CHECK_COMPLETED}');
+              showStatus('${APP_CONSTANTS.MESSAGES.HEALTH_CHECK_COMPLETED}');
+              
+              // Reload RPCs to show updated health status
+              await loadRpcs(currentRpcChainId);
+            } else {
+              const error = await response.text();
+              log(\`Health check failed: \${error}\`);
+              showStatus('${APP_CONSTANTS.MESSAGES.HEALTH_CHECK_FAILED}', true);
+            }
+          } catch (error) {
+            log(\`Error checking all RPCs health: \${error.message}\`);
+            showStatus(\`Error checking all RPCs health: \${error.message}\`, true);
+          }
+        }
+
+        // Copy Proxy URL to clipboard
+        function copyProxyUrl(chainId, chainName) {
+          const baseUrl = window.location.origin;
+          const proxyUrl = \`\${baseUrl}/\${chainId}\`;
+          
+          navigator.clipboard.writeText(proxyUrl).then(() => {
+            log(\`Copied proxy URL for \${chainName}: \${proxyUrl}\`);
+            showStatus(\`Proxy URL copied: \${proxyUrl}\`);
+          }).catch(err => {
+            log(\`Failed to copy proxy URL: \${err.message}\`);
+            showStatus(\`Failed to copy proxy URL\`, true);
+          });
         }
 
         // Auto-load on page load

@@ -63,21 +63,21 @@ export class AdminUIComponents {
           background: ${APP_CONSTANTS.COLORS.PRIMARY};
           color: white;
           border: none;
-          padding: 12px 24px;
-          border-radius: 6px;
+          padding: 6px 12px;
+          border-radius: 4px;
           cursor: pointer;
-          font-size: 14px;
+          font-size: 12px;
           font-weight: 500;
-          transition: all 0.3s ease;
-          margin: 5px;
+          transition: all 0.2s ease;
+          margin: 2px;
           text-decoration: none;
           display: inline-block;
         }
 
         .${APP_CONSTANTS.UI_ELEMENTS.BUTTON}:hover {
           background: #0056b3;
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0,123,255,0.3);
+          transform: translateY(-1px);
+          box-shadow: 0 2px 8px rgba(0,123,255,0.3);
         }
 
         .${APP_CONSTANTS.UI_ELEMENTS.BUTTON}.success {
@@ -159,29 +159,30 @@ export class AdminUIComponents {
 
         .${APP_CONSTANTS.UI_ELEMENTS.FORM} {
           background: #f8f9fa;
-          padding: 20px;
-          border-radius: 8px;
-          margin: 20px 0;
+          padding: 16px;
+          border-radius: 6px;
+          margin: 15px 0;
           display: none;
         }
 
         .form-group {
-          margin-bottom: 15px;
+          margin-bottom: 12px;
         }
 
         .form-group label {
           display: block;
-          margin-bottom: 5px;
+          margin-bottom: 4px;
           font-weight: 500;
+          font-size: 13px;
           color: ${APP_CONSTANTS.COLORS.DARK};
         }
 
         .form-group input {
           width: 100%;
-          padding: 10px;
+          padding: 6px 10px;
           border: 1px solid #ced4da;
           border-radius: 4px;
-          font-size: 14px;
+          font-size: 13px;
           box-sizing: border-box;
         }
 
@@ -192,7 +193,7 @@ export class AdminUIComponents {
         }
 
         .form-actions {
-          margin-top: 20px;
+          margin-top: 15px;
           text-align: right;
         }
 
@@ -201,19 +202,107 @@ export class AdminUIComponents {
         }
 
         .rpc-item {
-          border: 1px solid #ddd;
-          padding: 15px;
-          margin: 10px 0;
-          border-radius: 6px;
-          background: white;
+          border: 1px solid #e0e0e0;
+          padding: 12px;
+          margin: 8px 0;
+          border-radius: 4px;
+          background: #fafafa;
+          position: relative;
+          transition: all 0.2s ease;
+        }
+
+        .rpc-item:hover {
+          background: #f5f5f5;
+          border-color: #d0d0d0;
         }
 
         .rpc-item p {
-          margin: 5px 0;
+          margin: 4px 0;
+          font-size: 13px;
+          line-height: 1.4;
         }
 
         .rpc-item strong {
           color: ${APP_CONSTANTS.COLORS.DARK};
+          font-weight: 600;
+        }
+
+        .rpc-item .health-badge {
+          display: inline-block;
+          padding: 2px 8px;
+          border-radius: 3px;
+          font-size: 11px;
+          font-weight: 600;
+          margin-left: 8px;
+        }
+
+        .rpc-item .health-badge.healthy {
+          background: #d4edda;
+          color: #155724;
+        }
+
+        .rpc-item .health-badge.unhealthy {
+          background: #f8d7da;
+          color: #721c24;
+        }
+
+        .rpc-item .health-badge.checking {
+          background: #fff3cd;
+          color: #856404;
+        }
+
+        .rpc-item .health-details {
+          font-size: 11px;
+          color: #6c757d;
+          margin-top: 4px;
+          padding: 4px 0;
+        }
+
+        .rpc-item .rpc-url {
+          font-family: 'Monaco', 'Menlo', monospace;
+          font-size: 12px;
+          color: #0066cc;
+          word-break: break-all;
+        }
+
+        .rpc-item .rpc-config {
+          display: flex;
+          gap: 12px;
+          margin: 6px 0;
+          font-size: 12px;
+        }
+
+        .rpc-item .rpc-config span {
+          color: #666;
+        }
+
+        .rpc-item .rpc-actions {
+          margin-top: 8px;
+          display: flex;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+
+        .rpc-item .rpc-actions button {
+          padding: 4px 10px;
+          font-size: 12px;
+          border-radius: 3px;
+        }
+
+        .loading-spinner {
+          display: inline-block;
+          width: 12px;
+          height: 12px;
+          border: 2px solid #f3f3f3;
+          border-top: 2px solid ${APP_CONSTANTS.COLORS.PRIMARY};
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin-left: 5px;
+        }
+
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
 
         @media (max-width: 768px) {
@@ -363,6 +452,7 @@ export class AdminUIComponents {
           <input type="url" id="${APP_CONSTANTS.FORM_FIELDS.NEW_RPC_URL}" placeholder="https://...">
         </div>
         <button type="button" class="${APP_CONSTANTS.UI_ELEMENTS.BUTTON} success" onclick="addRpc()">Add RPC</button>
+        <button type="button" class="${APP_CONSTANTS.UI_ELEMENTS.BUTTON} warning" onclick="checkAllRpcsHealth()">🏥 Check All RPCs Health</button>
         
         <div id="${APP_CONSTANTS.SECTIONS.RPC_LIST}">
           <!-- RPCs will be loaded here -->
@@ -371,6 +461,43 @@ export class AdminUIComponents {
         <div class="form-actions">
           <button type="button" class="${APP_CONSTANTS.UI_ELEMENTS.BUTTON}" onclick="hideRpcManagement()">Close</button>
         </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Generate edit RPC form
+   */
+  static getEditRpcForm(): string {
+    return `
+      <div id="${APP_CONSTANTS.SECTIONS.EDIT_RPC}" class="${APP_CONSTANTS.UI_ELEMENTS.FORM}">
+        <h3>Edit RPC Endpoint</h3>
+        <form id="editRpcForm">
+          <div class="form-group">
+            <label for="${APP_CONSTANTS.FORM_FIELDS.EDIT_RPC_URL}">RPC URL:</label>
+            <input type="text" id="${APP_CONSTANTS.FORM_FIELDS.EDIT_RPC_URL}" readonly>
+          </div>
+          <div class="form-group">
+            <label for="${APP_CONSTANTS.FORM_FIELDS.EDIT_RPC_NAME}">Name (Optional):</label>
+            <input type="text" id="${APP_CONSTANTS.FORM_FIELDS.EDIT_RPC_NAME}" placeholder="e.g., LlamaRPC">
+          </div>
+          <div class="form-group">
+            <label for="${APP_CONSTANTS.FORM_FIELDS.EDIT_RPC_PRIORITY}">Priority:</label>
+            <input type="number" id="${APP_CONSTANTS.FORM_FIELDS.EDIT_RPC_PRIORITY}" min="1" max="10" value="1">
+          </div>
+          <div class="form-group">
+            <label for="${APP_CONSTANTS.FORM_FIELDS.EDIT_RPC_TIMEOUT}">Timeout (ms):</label>
+            <input type="number" id="${APP_CONSTANTS.FORM_FIELDS.EDIT_RPC_TIMEOUT}" min="1000" max="30000" step="1000" value="5000">
+          </div>
+          <div class="form-group">
+            <label for="${APP_CONSTANTS.FORM_FIELDS.EDIT_RPC_MAX_RETRIES}">Max Retries:</label>
+            <input type="number" id="${APP_CONSTANTS.FORM_FIELDS.EDIT_RPC_MAX_RETRIES}" min="0" max="10" value="3">
+          </div>
+          <div class="form-actions">
+            <button type="button" class="${APP_CONSTANTS.UI_ELEMENTS.BUTTON}" onclick="hideEditRpcForm()">Cancel</button>
+            <button type="button" class="${APP_CONSTANTS.UI_ELEMENTS.BUTTON} success" onclick="updateRpc()">Update RPC</button>
+          </div>
+        </form>
       </div>
     `;
   }
@@ -409,6 +536,7 @@ export class AdminUIComponents {
           ${this.getAddChainForm()}
           ${this.getEditChainForm()}
           ${this.getRpcManagementSection()}
+          ${this.getEditRpcForm()}
           ${this.getDebugSection()}
         </div>
       </body>

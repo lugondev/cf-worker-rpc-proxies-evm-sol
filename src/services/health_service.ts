@@ -15,7 +15,7 @@ export class HealthService {
    */
   async checkRPCHealth(chainId: number | string, rpcEndpoint: RPCEndpoint): Promise<HealthCheckResult> {
     const startTime = Date.now();
-    
+
     try {
       // Create a simple eth_blockNumber request to test the RPC
       const testRequest = {
@@ -53,7 +53,7 @@ export class HealthService {
       }
 
       const result = await response.json() as any;
-      
+
       // Check if response contains valid block number
       if (result.error) {
         return {
@@ -103,7 +103,7 @@ export class HealthService {
       throw new Error(`Chain ${chainId} not found`);
     }
 
-    const healthChecks = chainConfig.rpcs.map(rpc => 
+    const healthChecks = chainConfig.rpcs.map(rpc =>
       this.checkRPCHealth(chainId, rpc)
     );
 
@@ -112,19 +112,61 @@ export class HealthService {
 
   /**
    * Perform health check on all configured chains and RPCs
+   * Uses parallel execution with concurrency control
    */
   async checkAllHealth(): Promise<HealthCheckResult[]> {
     const config = await this.configService.getConfig();
-    const allHealthChecks: Promise<HealthCheckResult[]>[] = [];
+    const allHealthChecks: Promise<HealthCheckResult>[] = [];
 
+    // Collect all RPC health checks
     for (const chainIdStr of Object.keys(config.chains)) {
       const parsed = parseInt(chainIdStr, 10);
       const chainId = isNaN(parsed) ? chainIdStr : parsed;
-      allHealthChecks.push(this.checkChainHealth(chainId));
+      const chainConfig = config.chains[chainIdStr];
+
+      // Add individual RPC checks instead of chain-level checks
+      for (const rpc of chainConfig.rpcs) {
+        allHealthChecks.push(this.checkRPCHealth(chainId, rpc));
+      }
     }
 
-    const results = await Promise.all(allHealthChecks);
-    return results.flat();
+    // Execute all checks in parallel with concurrency control
+    const results = await this.executeWithConcurrency(allHealthChecks, 10);
+    return results;
+  }
+
+  /**
+   * Execute promises with concurrency limit
+   * Prevents overwhelming the worker with too many concurrent requests
+   */
+  private async executeWithConcurrency<T>(
+    promises: Promise<T>[],
+    concurrency: number
+  ): Promise<T[]> {
+    const results: T[] = [];
+    const executing: Promise<void>[] = [];
+
+    for (const promise of promises) {
+      const p = promise.then(result => {
+        results.push(result);
+      });
+
+      executing.push(p);
+
+      if (executing.length >= concurrency) {
+        await Promise.race(executing);
+        // Remove completed promises
+        const completed = executing.filter(p => {
+          // Check if promise is settled
+          return Promise.race([p, Promise.resolve()]).then(() => true);
+        });
+        executing.splice(0, executing.length, ...completed);
+      }
+    }
+
+    // Wait for remaining promises
+    await Promise.all(executing);
+    return results;
   }
 
   /**
@@ -185,7 +227,7 @@ export class HealthService {
   async getHealthSummary(): Promise<HealthSummary> {
     const results = await this.getHealthResults();
     const config = await this.configService.getConfig();
-    
+
     const summary: HealthSummary = {
       totalChains: Object.keys(config.chains).length,
       totalRPCs: 0,
@@ -210,11 +252,11 @@ export class HealthService {
       const parsed = parseInt(chainIdStr, 10);
       const chainId = isNaN(parsed) ? chainIdStr : parsed;
       const chainHealthResults = chainResults[chainIdStr] || [];
-      
+
       const healthyCount = chainHealthResults.filter(r => r.isHealthy).length;
       const totalCount = chainHealthResults.length;
-      const avgResponseTime = totalCount > 0 
-        ? chainHealthResults.reduce((sum, r) => sum + r.responseTime, 0) / totalCount 
+      const avgResponseTime = totalCount > 0
+        ? chainHealthResults.reduce((sum, r) => sum + r.responseTime, 0) / totalCount
         : 0;
 
       summary.chains[chainIdStr] = {
@@ -230,7 +272,7 @@ export class HealthService {
     }
 
     summary.unhealthyRPCs = summary.totalRPCs - summary.healthyRPCs;
-    summary.lastUpdated = results.length > 0 
+    summary.lastUpdated = results.length > 0
       ? Math.max(...results.map(r => r.lastChecked))
       : 0;
 
@@ -243,18 +285,18 @@ export class HealthService {
   async runPeriodicHealthCheck(): Promise<void> {
     try {
       console.log('Starting periodic health check...');
-      
+
       const results = await this.checkAllHealth();
       await this.saveHealthResults(results);
       await this.updateRPCStatus(results);
-      
+
       console.log(`Health check completed. Checked ${results.length} RPCs.`);
-      
+
       // Log summary
       const healthyCount = results.filter(r => r.isHealthy).length;
       const unhealthyCount = results.length - healthyCount;
       console.log(`Healthy: ${healthyCount}, Unhealthy: ${unhealthyCount}`);
-      
+
     } catch (error) {
       console.error('Periodic health check failed:', error);
     }

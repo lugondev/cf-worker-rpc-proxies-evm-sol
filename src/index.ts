@@ -41,6 +41,33 @@ async function handleManagementRoutes(request: Request, env: Env): Promise<Respo
     }
   }
 
+  // Admin individual chain management
+  const adminChainMatch = path.match(/^\/admin\/chains\/([^\/]+)$/);
+  if (adminChainMatch) {
+    const chainIdStr = adminChainMatch[1];
+    const parsed = parseInt(chainIdStr, 10);
+    const chainId = isNaN(parsed) ? chainIdStr : parsed;
+    switch (method) {
+      case 'GET':
+        return managementRoutes.getChainConfig(request, chainId);
+      case 'PUT':
+        return managementRoutes.updateChainConfig(request, chainId);
+      case 'DELETE':
+        return managementRoutes.removeChainConfig(request, chainId);
+    }
+  }
+
+  // Admin health check for specific chain
+  const adminHealthChainMatch = path.match(/^\/admin\/health\/([^\/]+)$/);
+  if (adminHealthChainMatch) {
+    const chainIdStr = adminHealthChainMatch[1];
+    const parsed = parseInt(chainIdStr, 10);
+    const chainId = isNaN(parsed) ? chainIdStr : parsed;
+    if (method === 'POST') {
+      return managementRoutes.getChainHealth(request, chainId);
+    }
+  }
+
   if (path === '/admin/health') {
     switch (method) {
       case 'GET':
@@ -59,13 +86,45 @@ async function handleManagementRoutes(request: Request, env: Env): Promise<Respo
     }
   }
 
+  // CORS management endpoints
+  if (path === '/admin/cors/status') {
+    if (method === 'GET') {
+      return managementRoutes.getCORSStatus(request);
+    }
+  }
+
+  if (path === '/admin/cors/enable-all') {
+    if (method === 'POST') {
+      return managementRoutes.enableAllowAllCORS(request);
+    }
+  }
+
+  if (path === '/admin/cors/disable-all') {
+    if (method === 'POST') {
+      return managementRoutes.disableAllowAllCORS(request);
+    }
+  }
+
   // Admin RPC endpoint management
-  const adminRpcMatch = path.match(/^\/admin\/chains\/(\d+)\/rpcs$/);
+  const adminRpcMatch = path.match(/^\/admin\/chains\/([^\/]+)\/rpcs$/);
   if (adminRpcMatch) {
-    const chainId = parseInt(adminRpcMatch[1]);
+    const chainIdStr = adminRpcMatch[1];
+    const parsed = parseInt(chainIdStr, 10);
+    const chainId = isNaN(parsed) ? chainIdStr : parsed;
     switch (method) {
       case 'POST':
         return managementRoutes.addRPCEndpoint(request, chainId);
+    }
+  }
+
+  // Admin RPC health check
+  const adminRpcHealthMatch = path.match(/^\/admin\/chains\/([^\/]+)\/rpcs\/health$/);
+  if (adminRpcHealthMatch) {
+    const chainIdStr = adminRpcHealthMatch[1];
+    const parsed = parseInt(chainIdStr, 10);
+    const chainId = isNaN(parsed) ? chainIdStr : parsed;
+    if (method === 'POST') {
+      return managementRoutes.checkRPCHealth(request, chainId);
     }
   }
 
@@ -188,9 +247,9 @@ export default {
       }
 
       // Management routes (excluding /admin)
-      if (path.startsWith('/admin/') || path.startsWith('/config') || 
-          path.startsWith('/chains') || path.startsWith('/health') || 
-          path.startsWith('/stats')) {
+      if (path.startsWith('/admin/') || path.startsWith('/config') ||
+        path.startsWith('/chains') || path.startsWith('/health') ||
+        path.startsWith('/stats')) {
         return await handleManagementRoutes(request, env);
       }
 
@@ -271,10 +330,10 @@ All management endpoints require Bearer token authentication:
 function getAdminInterface(): Response {
   const adminPage = AdminUIComponents.generateAdminPage('RPC EVM Proxy - Admin Interface');
   const clientScript = AdminClientService.generateClientScript();
-  
+
   // Insert the client script before closing body tag
   const pageWithScript = adminPage.replace('</body>', `${clientScript}</body>`);
-  
+
   return new Response(pageWithScript, {
     headers: { 'Content-Type': 'text/html' }
   });
