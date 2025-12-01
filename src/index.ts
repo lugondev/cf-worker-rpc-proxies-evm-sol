@@ -114,6 +114,14 @@ async function handleManagementRoutes(request: Request, env: Env): Promise<Respo
     switch (method) {
       case 'POST':
         return managementRoutes.addRPCEndpoint(request, chainId);
+      case 'DELETE':
+        return managementRoutes.removeRPCEndpoint(request, chainId);
+      case 'PUT':
+        const rpcUrl = url.searchParams.get('rpcUrl');
+        if (rpcUrl) {
+          return managementRoutes.updateRPCStatus(request, chainId, rpcUrl);
+        }
+        return new Response('Missing rpcUrl parameter', { status: 400 });
     }
   }
 
@@ -288,7 +296,7 @@ function getAPIDocumentation(): Response {
   const docs = `
 # RPC EVM Proxy API Documentation
 
-## Management Endpoints
+## Public Endpoints
 
 ### Configuration
 - GET /config - Get current configuration
@@ -314,9 +322,40 @@ function getAPIDocumentation(): Response {
 ### Statistics
 - GET /stats - Get proxy statistics
 
+## Admin Endpoints (require X-API-Key header)
+
+### Configuration
+- GET /admin/config - Get current configuration
+- PUT /admin/config - Update configuration
+- DELETE /admin/config - Reset configuration
+
+### CORS Management
+- GET /admin/cors - Get CORS configuration
+- PUT /admin/cors - Update CORS configuration
+- GET /admin/cors/status - Get CORS status
+- POST /admin/cors/enable-all - Enable allow-all CORS
+- POST /admin/cors/disable-all - Disable allow-all CORS
+
+### Chain Management
+- GET /admin/chains - List all chains
+- GET /admin/chains/{id} - Get specific chain config
+- PUT /admin/chains/{id} - Update/Create chain config
+- DELETE /admin/chains/{id} - Remove chain
+
+### RPC Management
+- POST /admin/chains/{id}/rpcs - Add RPC endpoint
+- DELETE /admin/chains/{id}/rpcs?rpcUrl={url} - Remove RPC endpoint
+- PUT /admin/chains/{id}/rpcs?rpcUrl={url} - Update RPC status
+- POST /admin/chains/{id}/rpcs/health - Check specific RPC health
+
+### Health Monitoring
+- GET /admin/health - Get overall health status
+- POST /admin/health - Trigger health check for all chains
+- POST /admin/health/{id} - Trigger health check for specific chain
+
 ## Authentication
-All management endpoints require Bearer token authentication:
-\`Authorization: Bearer YOUR_ADMIN_API_KEY\`
+All admin endpoints require X-API-Key header:
+\`X-API-Key: YOUR_ADMIN_API_KEY\`
   `;
 
   return new Response(docs, {

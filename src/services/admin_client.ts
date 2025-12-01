@@ -62,19 +62,28 @@ export class AdminClientService {
 
             if (response.ok) {
               log('${APP_CONSTANTS.MESSAGES.AUTH_SUCCESS}');
+              
+              // Save API key to localStorage
+              localStorage.setItem('admin_api_key', apiKey);
+              
               document.getElementById('${APP_CONSTANTS.SECTIONS.AUTH_STATUS}').innerHTML = 
                 '<p style="color: ${APP_CONSTANTS.COLORS.SUCCESS};">✅ ${APP_CONSTANTS.MESSAGES.AUTH_SUCCESS}</p>';
               showStatus('${APP_CONSTANTS.MESSAGES.AUTH_SUCCESS}');
               
-              // Show Load Chains button
+              // Show Load Chains button and hide login form
               const loadChainsBtn = document.getElementById('loadChainsBtn');
               if (loadChainsBtn) {
                 loadChainsBtn.style.display = 'inline-block';
               }
               
+              // Show logout button
+              showLogoutButton();
+              
               return true;
             } else {
               log('${APP_CONSTANTS.MESSAGES.AUTH_FAILED}: ' + response.status);
+              // Clear stored API key on failed auth
+              localStorage.removeItem('admin_api_key');
               document.getElementById('${APP_CONSTANTS.SECTIONS.AUTH_STATUS}').innerHTML = 
                 '<p style="color: ${APP_CONSTANTS.COLORS.DANGER};">❌ ${APP_CONSTANTS.MESSAGES.AUTH_FAILED}</p>';
               showStatus('${APP_CONSTANTS.MESSAGES.AUTH_FAILED}', true);
@@ -84,6 +93,47 @@ export class AdminClientService {
             log('Authentication error: ' + error.message);
             showStatus('Authentication error: ' + error.message, true);
             return false;
+          }
+        }
+
+        function logout() {
+          // Clear API key from memory and localStorage
+          apiKey = '';
+          localStorage.removeItem('admin_api_key');
+          
+          // Clear UI
+          document.getElementById('${APP_CONSTANTS.FORM_FIELDS.API_KEY}').value = '';
+          document.getElementById('${APP_CONSTANTS.SECTIONS.AUTH_STATUS}').innerHTML = '';
+          document.getElementById('${APP_CONSTANTS.SECTIONS.CHAINS_GRID}').innerHTML = '';
+          
+          // Hide logout button and chains
+          const logoutBtn = document.getElementById('logoutBtn');
+          if (logoutBtn) {
+            logoutBtn.style.display = 'none';
+          }
+          const loadChainsBtn = document.getElementById('loadChainsBtn');
+          if (loadChainsBtn) {
+            loadChainsBtn.style.display = 'none';
+          }
+          
+          log('Logged out successfully');
+          showStatus('Logged out');
+        }
+
+        function showLogoutButton() {
+          const authStatus = document.getElementById('${APP_CONSTANTS.SECTIONS.AUTH_STATUS}');
+          let logoutBtn = document.getElementById('logoutBtn');
+          
+          if (!logoutBtn) {
+            logoutBtn = document.createElement('button');
+            logoutBtn.id = 'logoutBtn';
+            logoutBtn.className = '${APP_CONSTANTS.UI_ELEMENTS.BUTTON} danger';
+            logoutBtn.textContent = '🚪 Logout';
+            logoutBtn.onclick = logout;
+            logoutBtn.style.marginLeft = '10px';
+            authStatus.appendChild(logoutBtn);
+          } else {
+            logoutBtn.style.display = 'inline-block';
           }
         }
 
@@ -733,12 +783,32 @@ export class AdminClientService {
 
         // Auto-load on page load
         document.addEventListener('DOMContentLoaded', () => {
-          // Check for API key in URL
+          // Check for API key in localStorage first
+          const storedApiKey = localStorage.getItem('admin_api_key');
+          
+          // Check for API key in URL (takes precedence)
           const urlParams = new URLSearchParams(window.location.search);
           const urlApiKey = urlParams.get('key');
           
           if (urlApiKey) {
             apiKey = urlApiKey;
+            const keyInput = document.getElementById('${APP_CONSTANTS.FORM_FIELDS.API_KEY}');
+            if (keyInput) {
+              keyInput.value = apiKey;
+            }
+            testAuth().then(success => {
+              if (success) {
+                loadChains();
+              }
+            });
+          } else if (storedApiKey) {
+            // Auto-login with stored API key
+            apiKey = storedApiKey;
+            const keyInput = document.getElementById('${APP_CONSTANTS.FORM_FIELDS.API_KEY}');
+            if (keyInput) {
+              keyInput.value = apiKey;
+            }
+            log('Auto-login with stored API key...');
             testAuth().then(success => {
               if (success) {
                 loadChains();
